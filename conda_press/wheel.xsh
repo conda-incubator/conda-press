@@ -74,7 +74,9 @@ class Wheel:
     def write(self):
         with ZipFile(self.filename, 'w') as zf:
             self.zf = zf
-            self.write_wheel_metadata(zf)
+            self.write_metadata()
+            self.write_wheel_metadata()
+            self.write_record() # This *has* to be the last write
             del self.zf
 
     def _writestr_and_record(self, arcname, data):
@@ -84,19 +86,25 @@ class Wheel:
         record = (arcname, record_hash(data), len(data))
         self._records.append(record)
 
-    def write_metadata(self, zf):
+    def write_metadata(self):
         lines = ["Metadata-Version: 2.1", "Name: " + self.distribution,
                  "Version: " + self.version]
-        content = "\n".join(lines)
+        content = "\n".join(lines) + "\n"
         arcname = f"{self.distribution}-{self.version}.dist-info/METADATA"
         self._writestr_and_record(arcname, content)
 
-    def write_wheel_metadata(self, zf):
+    def write_wheel_metadata(self):
         lines = ["Wheel-Version: 1.0", "Generator: conda-press " + VERSION]
         lines.append("Root-Is-Purelib: " + str(self.noarch_python).lower())
         lines.append("Tag: " + self.compatibility_tag)
         if self.build_tag is not None:
             lines.append("Build: " + self.build_tag)
-        content = "\n".join(lines)
+        content = "\n".join(lines) + "\n"
         arcname = f"{self.distribution}-{self.version}.dist-info/WHEEL"
         self._writestr_and_record(arcname, content)
+
+    def write_record(self):
+        lines = [f"{f},{h},{s}" for f, h, s in self._records]
+        content = "\n".join(lines)
+        arcname = f"{self.distribution}-{self.version}.dist-info/RECORD"
+        self.zf.writestr(arcname, content)
