@@ -1,0 +1,3 @@
+#!/usr/bin/env python3 -u
+from conda_press.main import main
+main()
