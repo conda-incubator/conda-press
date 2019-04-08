@@ -1,10 +1,11 @@
 """Tools for representing wheels in-memory"""
+import os
 import base64
 from hashlib import sha256
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 from collections.abc import Sequence, MutableSequence
 
-import tqdm
+from tqdm import tqdm
 
 from conda_press import __version__ as VERSION
 
@@ -107,7 +108,7 @@ class Wheel:
         self.basedir = None
         self._records = [(f"{distribution}-{version}.dist-info/RECORD", "", "")]
         self._scripts = []
-        self._includes []
+        self._includes = []
         self._files = []
 
     def __repr__(self):
@@ -164,18 +165,21 @@ class Wheel:
     def write(self):
         with ZipFile(self.filename, 'w') as zf:
             self.zf = zf
-            self.write_metadata()
-            self.write_wheel_metadata()
             self.write_from_filesystem('scripts')
             self.write_from_filesystem('includes')
             self.write_from_filesystem('files')
+            self.write_metadata()
+            self.write_wheel_metadata()
             self.write_record() # This *has* to be the last write
             del self.zf
 
-    def _writestr_and_record(self, arcname, data):
+    def _writestr_and_record(self, arcname, data, zinfo=None):
         if isinstance(data, str):
             data = data.encode('utf-8')
-        self.zf.writestr(arcname, data)
+        if zinfo is None:
+            self.zf.writestr(arcname, data)
+        else:
+            self.zf.writestr(zinfo, data)
         record = (arcname, record_hash(data), len(data))
         self._records.append(record)
 
@@ -205,9 +209,13 @@ class Wheel:
             print('Nothing to write!')
             return
         for fsname, arcname in tqdm(files):
-            with open(os.path.join(self.basedir, fsname), 'bw') as f:
+            absname = os.path.join(self.basedir, fsname)
+            if not os.path.isfile(absname):
+                continue
+            with open(absname, 'br') as f:
                 data = f.read()
-            self._writestr_and_record(arcname, data)
+            zinfo = ZipInfo.from_file(absname, arcname=arcname)
+            self._writestr_and_record(arcname, data, zinfo=zinfo)
 
     def write_record(self):
         print('Writing record')

@@ -14,7 +14,8 @@ def artifact_to_wheel(path):
     base = os.path.basename(path)
     name, _, extra = base.partition('-')
     version, _, extra = extra.partition('-')
-    extra, _, build = os.path.splitext(extra.rpartition('-'))[0]
+    extra, _, build = extra.rpartition('-')
+    build = os.path.splitext(build)[0]
     while build and not build.isdigit():
         build = build[1:]
     if not build:
@@ -27,11 +28,11 @@ def artifact_to_wheel(path):
         mode - 'r:'
     else:
         mode = 'r'
-    with TarFile.open(path, mode=mode) as tf:
+    with tarfile.TarFile.open(path, mode=mode) as tf:
         tf.extractall(path=tmpdir)
     # create wheel
     wheel = Wheel(name, version, build_tag=build)
-    wheel.basedir = tmpfile
+    wheel.basedir = tmpdir
     with indir(tmpdir):
         wheel.scripts = g`bin/**`
         wheel.includes = g`include/**`
