@@ -12,7 +12,6 @@ from conda_press.wheel import Wheel
 
 
 def wheel_safe_build(build, build_string=None):
-    print("build", build, "build_string", build_string)
     if build is None:
         pass
     elif build_string is None:
