@@ -212,9 +212,15 @@ class Wheel:
             absname = os.path.join(self.basedir, fsname)
             if not os.path.isfile(absname):
                 continue
-            with open(absname, 'br') as f:
-                data = f.read()
-            zinfo = ZipInfo.from_file(absname, arcname=arcname)
+            elif os.path.islink(absname):
+                # symbolic link, see https://gist.github.com/kgn/610907
+                data = os.readlink(absname).encode('utf-8')
+                zinfo = ZipInfo.from_file(absname, arcname=arcname)
+                zinfo.external_attr = 0xA1ED0000
+            else:
+                with open(absname, 'br') as f:
+                    data = f.read()
+                zinfo = ZipInfo.from_file(absname, arcname=arcname)
             self._writestr_and_record(arcname, data, zinfo=zinfo)
 
     def write_record(self):
