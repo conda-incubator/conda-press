@@ -78,6 +78,50 @@ PACKAGE_SPEC_GETTERS = (
 )
 
 
+def info_files_exists(basedir):
+    return os.path.isfile(os.path.join(basedir, 'info', 'files'))
+
+
+def package_files_from_info(basedir):
+    with open(os.path.join(basedir, 'info', 'files'), 'r') as f:
+        raw = f.read().strip()
+    files = raw.splitlines()
+    return files
+
+
+def can_glob_files(basedir):
+    return os.path.isdir(basedir)
+
+
+def package_files_from_glob(basedir):
+    with indir(basedir):
+        files = g`**`
+    return files
+
+
+PACKAGE_FILE_GETTERS = (
+    # (checker, getter) tuples in priority order
+    (info_files_exists, package_files_from_info),
+    (can_glob_files, package_files_from_glob),
+)
+
+
+def _group_files(wheel, pkg_files):
+    scripts = []
+    includes = []
+    files = []
+    for fname in pkg_files:
+        if fname.startswith('bin/'):
+            scripts.append(fname)
+        elif fname.startswith('include/'):
+            includes.append(fname)
+        else:
+            files.append(fname)
+    wheel.scripts = scripts
+    wheel.includes = includes
+    wheel.files = files
+
+
 def artifact_to_wheel(path):
     """Converts an artifact to a wheel."""
     # unzip the artifact
@@ -104,9 +148,12 @@ def artifact_to_wheel(path):
     # create wheel
     wheel = Wheel(name, version, build_tag=build)
     wheel.basedir = tmpdir
-    with indir(tmpdir):
-        wheel.scripts = g`bin/**`
-        wheel.includes = g`include/**`
-        wheel.files = g`lib/**` + g`lib64/**`
+    for checker, getter in PACKAGE_FILE_GETTERS:
+        if checker(tmpdir):
+            pkg_files = getter(tmpdir)
+            break
+    else:
+        raise RuntimeError(f'could not get package files from {path!r}')
+    _group_files(wheel, pkg_files)
     wheel.write()
     rmtree(tmpdir, force=True)
