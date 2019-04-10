@@ -132,7 +132,8 @@ class Wheel:
 
     @scripts.setter
     def scripts(self, value):
-        self._scripts = _normalize_path_mappings(value, self.basedir, 'scripts')
+        arcdir = f"{self.distribution}-{self.version}.data/scripts"
+        self._scripts = _normalize_path_mappings(value, self.basedir, arcdir)
 
     @scripts.deleter
     def scripts(self):
@@ -144,7 +145,8 @@ class Wheel:
 
     @includes.setter
     def includes(self, value):
-        self._includes = _normalize_path_mappings(value, self.basedir, 'includes')
+        arcdir = f"{self.distribution}-{self.version}.data/headers"
+        self._includes = _normalize_path_mappings(value, self.basedir, arcdir)
 
     @includes.deleter
     def includes(self):
