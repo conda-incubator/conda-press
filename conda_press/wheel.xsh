@@ -2,7 +2,7 @@
 import os
 import base64
 from hashlib import sha256
-from zipfile import ZipFile, ZipInfo
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 from collections.abc import Sequence, MutableSequence
 
 from tqdm import tqdm
@@ -165,7 +165,7 @@ class Wheel:
         self._files = None
 
     def write(self):
-        with ZipFile(self.filename, 'w') as zf:
+        with ZipFile(self.filename, 'w', compression=ZIP_DEFLATED) as zf:
             self.zf = zf
             self.write_from_filesystem('scripts')
             self.write_from_filesystem('includes')
@@ -179,9 +179,9 @@ class Wheel:
         if isinstance(data, str):
             data = data.encode('utf-8')
         if zinfo is None:
-            self.zf.writestr(arcname, data)
+            self.zf.writestr(arcname, data, compress_type=ZIP_DEFLATED)
         else:
-            self.zf.writestr(zinfo, data)
+            self.zf.writestr(zinfo, data, compress_type=ZIP_DEFLATED)
         record = (arcname, record_hash(data), len(data))
         self._records.append(record)
 
@@ -223,6 +223,7 @@ class Wheel:
                 with open(absname, 'br') as f:
                     data = f.read()
                 zinfo = ZipInfo.from_file(absname, arcname=arcname)
+            zinfo.compress_type = ZIP_DEFLATED
             self._writestr_and_record(arcname, data, zinfo=zinfo)
 
     def write_record(self):
