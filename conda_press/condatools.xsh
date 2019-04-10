@@ -74,6 +74,16 @@ PACKAGE_SPEC_GETTERS = (
 )
 
 
+def _defer_symbolic_links(files):
+    first = []
+    defer = []
+    for f in files:
+        if os.path.islink(f):
+            defer.append(f)
+        else:
+            first.append(f)
+    return first + defer
+
 def _group_files(wheel, pkg_files):
     scripts = []
     includes = []
@@ -85,9 +95,25 @@ def _group_files(wheel, pkg_files):
             includes.append(fname)
         else:
             files.append(fname)
-    wheel.scripts = scripts
-    wheel.includes = includes
-    wheel.files = files
+    wheel.scripts = _defer_symbolic_links(scripts)
+    wheel.includes = _defer_symbolic_links(includes)
+    wheel.files = _defer_symbolic_links(files)
+
+
+def major_minor(ver):
+    major, _, extra = ver.partition('.')
+    minor, _, extra = extra.partition('.')
+    return major, minor
+
+
+PLATFORM_SUBDIRS_TO_TAGS = {
+    "noarch": "any",
+    "linux-32": "linux_i386",
+    "linux-64": "linux_x86_64",
+    "osx-64": "macosx_10_9_x86_64",
+    "win-32": "win32",
+    "win-64": "win_amd64",
+}
 
 
 class ArtifactInfo:
@@ -95,6 +121,11 @@ class ArtifactInfo:
 
     def __init__(self, artifactdir):
         self._artifactdir = None
+        self._python_tag = None
+        self._abi_tag = None
+        self._platform_tag = None
+        self._run_requirements = None
+        self._noarch = None
         self.index_json = None
         self.meta_yaml = None
         self.files = None
@@ -124,6 +155,12 @@ class ArtifactInfo:
             self.meta_yaml = None
         # load file listing
         self._load_files()
+        # clean up lazy values
+        self._python_tag = None
+        self._abi_tag = None
+        self._platform_tag = None
+        self._run_requirements = None
+        self._noarch = None
 
     def _load_files(self):
         filesname = os.path.join(self._artifactdir, 'info', 'files')
@@ -134,6 +171,83 @@ class ArtifactInfo:
         else:
             with indir(self._artifactdir):
                 self.files = set(g`**`) - set(g`info/**`)
+
+    @property
+    def run_requirements(self):
+        if self._run_requirements is not None:
+            return self._run_requirements
+        reqs = self.meta_yaml.get('requirements', {}).get('run', ())
+        rr = dict([x.partition(' ')[::2] for x in reqs])
+        self._run_requirements = rr
+        return self._run_requirements
+
+    @property
+    def noarch(self):
+        if self._noarch is not None:
+            return self._noarch:
+        if self.index_json is not None:
+            na = self.index_json.get('noarch', False)
+        elif self.meta_yaml is not None:
+            na = self.meta_yaml.get('build', {}).get('noarch', False)
+        else:
+            # couldn't find, assume noarch
+            na = False
+        self._noarch = na
+        return self._noarch
+
+    @property
+    def python_tag(self):
+        if self._python_tag is not None:
+            return self._python_tag
+        if 'python' in self.run_requirements:
+            pyver = self.run_requirements['python']
+            if pyver:
+                if pyver.startswith('=='):
+                    pytag = 'cp' + ''.join(major_minor(pyver[2:]))
+                elif pyver[0].isdigit():
+                    pytag = 'cp' + ''.join(major_minor(pyver))
+                elif pytag.startswith('>='):
+                    pytag = 'cp' + major_minor(pyver)[0]
+                else:
+                    # couldn't choose, pick no-arch
+                    pytag = 'py2.py3'
+            else:
+                # noarch python, effectively
+                pytag = 'py2.py3'
+        else:
+            # no python dependence, so valid for all Pythons
+            pytag = 'py2.py3'
+        self._python_tag = pytag
+        return self._python_tag
+
+    @property
+    def abi_tag(self):
+        if self._abi_tag is not None:
+            return self._abi_tag
+        if self.python_tag == 'py2.py3':
+            # no arch or no Python dependnce
+            atag = 'none'
+        elif self.python_tag == "cp3":
+            atag = "abi3"
+        elif self.python_tag.startswith('cp'):
+            atag = self.python_tag + 'm'
+        else:
+            # could not determine, use no-arch setting
+            atag = "none"
+        self._abi_tag = atag
+        return self._abi_tag
+
+    @property
+    def platform_tag(self):
+        if self._platform_tag is not None:
+            return self._platform_tag
+        if self.noarch:
+            ptag = 'any'
+        else:
+            platform_subdir = self.index_json["subdir"]
+            ptag = PLATFORM_SUBDIRS_TO_TAGS[platform_subdir]
+        self._platform_tag = ptag
+        return self._platform_tag
 
 
 def artifact_to_wheel(path):
@@ -161,7 +275,8 @@ def artifact_to_wheel(path):
     else:
         raise RuntimeError(f'could not compute name, version, and build for {path!r}')
     # create wheel
-    wheel = Wheel(name, version, build_tag=build)
+    wheel = Wheel(name, version, build_tag=build, python_tag=info.python_tag,
+                  abi_tag=info.abi_tag, platform_tag=info.platform_tag)
     wheel.basedir = tmpdir
     _group_files(wheel, info.files)
     wheel.write()
