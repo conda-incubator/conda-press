@@ -61,7 +61,7 @@ def _normalize_path_mappings(value, basedir, arcbase='.'):
 class Wheel:
     """A wheel representation that knows how to write itself out."""
 
-    def __init__(self, distribution, version, build_tag=None, python_tag='py3',
+    def __init__(self, distribution, version, build_tag=None, python_tag='py2.py3',
                  abi_tag='none', platform_tag='any'):
         """
         Parameters
