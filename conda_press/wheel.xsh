@@ -265,3 +265,26 @@ class Wheel:
         print(f"Writing {top_level} to top_level.txt")
         arcname = f"{self.distribution}-{self.version}.dist-info/top_level.txt"
         self._writestr_and_record(arcname, top_level + "\n")
+
+    #
+    # rewrite the actual files going in to the Wheel, as needed
+    #
+
+    def rewrite_python_shebang(self):
+        for fsname, arcname in self.scripts:
+            fspath = os.path.join(self.basedir, fsname)
+            with open(fspath, 'rb') as f:
+                first = f.readline()
+                if not first.startswith(b'#!'):
+                    continue
+                elif b'pythonw' in first:
+                    shebang = b'#!pythonw\n'
+                elif b'python' in first:
+                    shebang = b'#!python\n'
+                else:
+                    continue
+                remainder = f.read()
+            print(f"rewriting shebang for {fsname}")
+            replacement = shebang + remainder
+            with open(fspath, 'wb') as f:
+                f.write(replacement)

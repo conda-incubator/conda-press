@@ -381,6 +381,7 @@ def artifact_to_wheel(path, clean=True):
         _remap_noarch_python(wheel, info)
     elif "python" in info.run_requirements:
         _remap_site_packages(wheel, info)
+    wheel.rewrite_python_shebang()
     wheel.entry_points = info.entry_points
     wheel.write()
     if clean:
