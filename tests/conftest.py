@@ -58,21 +58,28 @@ def download_artifact(artifact_ref):
 
 @pytest.fixture()
 def pip_install_artifact(request):
+    wheel = None
     test_env = tempfile.mkdtemp(prefix="test-env")
     def create_wheel_and_install(artifact_ref):
+        nonlocal wheel
         artifact_path = download_artifact(artifact_ref)
-        wheel = artifact_to_wheel(artifact_path)
+        wheel = artifact_to_wheel(artifact_path, clean=False)
         subprocess.run(['virtualenv', test_env], check=True)
         site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
         if sys.platform.startswith('win'):
             raise RuntimeError("cannot activate on windows yet")
         else:
-            code = f"source {test_env}/bin/activate; pip install -vvv {wheel.filename}"
+            code = f"source {test_env}/bin/activate; pip install {wheel.filename}"
+            # uncomment the following when we handle dependencies
+            #import_tests = os.path.join(wheel.basedir, 'info', 'test', 'run_test.py')
+            #if os.path.isfile(import_tests):
+            #    code += f"; python {import_tests}"
             subprocess.run(["bash", "-c", code], check=True)
         return wheel, test_env, site_packages
 
     yield create_wheel_and_install
     rmtree(test_env, force=True)
+    rmtree(wheel.basedir, force=True)
     wheels = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
     for w in wheels:
         os.remove(w)

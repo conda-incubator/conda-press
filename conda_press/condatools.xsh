@@ -120,7 +120,8 @@ def _remap_noarch_python(wheel, info):
 
 
 def major_minor(ver):
-    major, _, extra = ver.partition('.')
+    entry, _, _ = ver.partition(',')
+    major, _, extra = entry.partition('.')
     minor, _, extra = extra.partition('.')
     return major, minor
 
@@ -207,7 +208,10 @@ class ArtifactInfo:
     def run_requirements(self):
         if self._run_requirements is not None:
             return self._run_requirements
-        reqs = self.meta_yaml.get('requirements', {}).get('run', ())
+        if "depends" in self.index_json:
+            reqs = self.index_json["depends"]
+        else:
+            reqs = self.meta_yaml.get('requirements', {}).get('run', ())
         rr = dict([x.partition(' ')[::2] for x in reqs])
         self._run_requirements = rr
         return self._run_requirements
@@ -233,14 +237,28 @@ class ArtifactInfo:
         if 'python' in self.run_requirements:
             pyver = self.run_requirements['python']
             if self.noarch == "python":
-                pytag = 'py2.py3'
+                if pyver.startswith('=='):
+                    pytag = 'py' + ''.join(major_minor(pyver[2:]))
+                elif pyver[0].isdigit():
+                    pytag = 'py' + ''.join(major_minor(pyver))
+                elif pyver.startswith('>=') and ',<' in pyver:
+                    # pinned to a single python version
+                    pytag = 'py' + ''.join(major_minor(pyver[2:]))
+                elif pyver.startswith('>='):
+                    pytag = 'py' + major_minor(pyver[2:])[0]
+                else:
+                    # couldn't choose, pick no-arch
+                    pytag = 'py2.py3'
             elif pyver:
                 if pyver.startswith('=='):
                     pytag = 'cp' + ''.join(major_minor(pyver[2:]))
                 elif pyver[0].isdigit():
                     pytag = 'cp' + ''.join(major_minor(pyver))
+                elif pyver.startswith('>=') and ',<' in pyver:
+                    # pinned to a single python version
+                    pytag = 'cp' + ''.join(major_minor(pyver[2:]))
                 elif pyver.startswith('>='):
-                    pytag = 'cp' + major_minor(pyver)[0]
+                    pytag = 'cp' + major_minor(pyver[2:])[0]
                 else:
                     # couldn't choose, pick no-arch
                     pytag = 'py2.py3'
@@ -298,8 +316,10 @@ class ArtifactInfo:
         return self._entry_points
 
 
-def artifact_to_wheel(path):
-    """Converts an artifact to a wheel."""
+def artifact_to_wheel(path, clean=True):
+    """Converts an artifact to a wheel. The clean option will remove
+    the temporary artifact directory before returning.
+    """
     # unzip the artifact
     base = os.path.basename(path)
     if base.endswith('.tar.bz2'):
@@ -332,5 +352,6 @@ def artifact_to_wheel(path):
         _remap_noarch_python(wheel, info)
     wheel.entry_points = info.entry_points
     wheel.write()
-    rmtree(tmpdir, force=True)
+    if clean:
+        rmtree(tmpdir, force=True)
     return wheel
