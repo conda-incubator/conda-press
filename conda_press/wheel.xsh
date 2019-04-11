@@ -172,7 +172,7 @@ class Wheel:
             self.write_from_filesystem('files')
             self.write_metadata()
             self.write_wheel_metadata()
-            self.write_record() # This *has* to be the last write
+            self.write_record()  # This *has* to be the last write
             del self.zf
 
     def _writestr_and_record(self, arcname, data, zinfo=None):
@@ -214,8 +214,11 @@ class Wheel:
             absname = os.path.join(self.basedir, fsname)
             if not os.path.isfile(absname):
                 continue
-            elif os.path.islink(absname):
+            elif False and os.path.islink(absname):
                 # symbolic link, see https://gist.github.com/kgn/610907
+                # unfortunately, pip doesn't extract symbolic links
+                # properly. If this is fixed ever, replace "False and"
+                # above. Until then, we have to make a copy in the archive.
                 data = os.readlink(absname).encode('utf-8')
                 zinfo = ZipInfo.from_file(absname, arcname=arcname)
                 zinfo.external_attr = 0xA1ED0000
