@@ -121,7 +121,7 @@ class Wheel:
     @property
     def filename(self):
         parts = [self.distribution, self.version]
-        if self.build_tag is not None:
+        if self.build_tag is not None and not self.noarch_python:
             parts.append(self.build_tag)
         parts.extend([self.python_tag, self.abi_tag, self.platform_tag])
         return '-'.join(parts) + '.whl'
@@ -249,4 +249,6 @@ class Wheel:
         lines.extend(self.entry_points)
         content = "\n".join(lines)
         arcname = f"{self.distribution}-{self.version}.dist-info/entry_points.txt"
-        self.zf.writestr(arcname, content)
+        self._writestr_and_record(arcname, content)
+        arcname = f"{self.distribution}-{self.version}.dist-info/top_level.txt"
+        self._writestr_and_record(arcname, "conda_smithy\n")
