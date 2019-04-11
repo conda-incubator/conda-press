@@ -1,5 +1,6 @@
 import os
 import sys
+import glob
 import tempfile
 import subprocess
 
@@ -52,12 +53,13 @@ def pip_install_artifact(request):
         artifact_path = download_artifact(artifact_ref)
         wheel = artifact_to_wheel(artifact_path)
         subprocess.run(['virtualenv', test_env], check=True)
+        site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
         if sys.platform.startswith('win'):
             raise RuntimeError("cannot activate on windows yet")
         else:
             code = f"source {test_env}/bin/activate; pip install {wheel.filename}"
             subprocess.run(["bash", "-c", code], check=True)
-        return wheel, test_env
+        return wheel, test_env, site_packages
 
     yield create_wheel_and_install
     rmtree(test_env, force=True)
