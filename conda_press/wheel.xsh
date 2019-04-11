@@ -175,6 +175,7 @@ class Wheel:
             self.write_from_filesystem('includes')
             self.write_from_filesystem('files')
             self.write_entry_points()
+            self.write_top_level()
             self.write_metadata()
             self.write_wheel_metadata()
             self.write_record()  # This *has* to be the last write
@@ -250,5 +251,17 @@ class Wheel:
         content = "\n".join(lines)
         arcname = f"{self.distribution}-{self.version}.dist-info/entry_points.txt"
         self._writestr_and_record(arcname, content)
+
+    def write_top_level(self):
+        inits = []
+        for fsname, arcname in self.files:
+            if arcname.endswith('__init__.py'):
+                pkg, _, _ = arcname.rpartition('/')
+                inits.append(pkg)
+        if not inits:
+            return
+        inits.sort(key=len)
+        top_level = inits[0]
+        print(f"Writing {top_level} to top_level.txt")
         arcname = f"{self.distribution}-{self.version}.dist-info/top_level.txt"
-        self._writestr_and_record(arcname, "conda_smithy\n")
+        self._writestr_and_record(arcname, top_level + "\n")
