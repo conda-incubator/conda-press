@@ -130,7 +130,9 @@ class ArtifactInfo:
         self._platform_tag = None
         self._run_requirements = None
         self._noarch = None
+        self._entry_points = None
         self.index_json = None
+        self.link_json = None
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
@@ -149,6 +151,13 @@ class ArtifactInfo:
                 self.index_json = json.load(f)
         else:
             self.index_json = None
+        # load link.json
+        lnkfile = os.path.join(value, 'info', 'link.json')
+        if os.path.isfile(lnkfile):
+            with open(lnkfile, 'r') as f:
+                self.link_json = json.load(f)
+        else:
+            self.link_json = None
         # load meta.yaml
         metafile = os.path.join(value, 'info', 'recipe', 'meta.yaml.rendered')
         if not os.path.exists(metafile):
@@ -161,12 +170,14 @@ class ArtifactInfo:
             self.meta_yaml = None
         # load file listing
         self._load_files()
+        # load link_json
         # clean up lazy values
         self._python_tag = None
         self._abi_tag = None
         self._platform_tag = None
         self._run_requirements = None
         self._noarch = None
+        self._entry_points = None
 
     def _load_files(self):
         filesname = os.path.join(self._artifactdir, 'info', 'files')
@@ -261,6 +272,17 @@ class ArtifactInfo:
         self._platform_tag = ptag
         return self._platform_tag
 
+    @property
+    def entry_points(self):
+        if self._entry_points is not None:
+            return self._entry_points
+        if self.link_json is None:
+            ep = []
+        else:
+            ep = self.link_json.get("noarch", {}).get("entry_points", [])
+        self._entry_points = ep
+        return self._entry_points
+
 
 def artifact_to_wheel(path):
     """Converts an artifact to a wheel."""
@@ -291,6 +313,7 @@ def artifact_to_wheel(path):
                   abi_tag=info.abi_tag, platform_tag=info.platform_tag)
     wheel.basedir = tmpdir
     _group_files(wheel, info)
+    wheel.entry_points = info.entry_points
     wheel.write()
     rmtree(tmpdir, force=True)
     return wheel

@@ -106,6 +106,7 @@ class Wheel:
         self.platform_tag = platform_tag
         self.noarch_python = False
         self.basedir = None
+        self.entry_points = []
         self._records = [(f"{distribution}-{version}.dist-info/RECORD", "", "")]
         self._scripts = []
         self._includes = []
@@ -170,6 +171,7 @@ class Wheel:
             self.write_from_filesystem('scripts')
             self.write_from_filesystem('includes')
             self.write_from_filesystem('files')
+            self.write_entry_points()
             self.write_metadata()
             self.write_wheel_metadata()
             self.write_record()  # This *has* to be the last write
@@ -234,4 +236,14 @@ class Wheel:
         lines = [f"{f},{h},{s}" for f, h, s in reversed(self._records)]
         content = "\n".join(lines)
         arcname = f"{self.distribution}-{self.version}.dist-info/RECORD"
+        self.zf.writestr(arcname, content)
+
+    def write_entry_points(self):
+        if not self.entry_points:
+            return
+        print('Writing entry points')
+        lines = ["[console_scripts]"]
+        lines.extend(self.entry_points)
+        content = "\n".join(lines)
+        arcname = f"{self.distribution}-{self.version}.dist-info/entry_points.txt"
         self.zf.writestr(arcname, content)

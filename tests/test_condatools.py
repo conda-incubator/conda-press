@@ -29,4 +29,7 @@ def test_scripts_to_bin(pip_install_artifact):
 
 def test_entrypoints(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("noarch/conda-smithy=3.3.2")
+    exc = os.path.join(test_env, 'bin', 'conda-smithy')
+    assert os.path.isfile(exc)
+    assert isexecutable(exc)
 
