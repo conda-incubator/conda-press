@@ -63,3 +63,6 @@ def pip_install_artifact(request):
 
     yield create_wheel_and_install
     rmtree(test_env, force=True)
+    wheels = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
+    for w in wheels:
+        os.remove(w)

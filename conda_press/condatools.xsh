@@ -150,7 +150,9 @@ class ArtifactInfo:
         else:
             self.index_json = None
         # load meta.yaml
-        metafile = os.path.join(value, 'info', 'recipe', 'meta.yaml')
+        metafile = os.path.join(value, 'info', 'recipe', 'meta.yaml.rendered')
+        if not os.path.exists(metafile):
+            metafile = os.path.join(value, 'info', 'recipe', 'meta.yaml')
         if os.path.isfile(metafile):
             yaml = YAML(typ='safe')
             with open(metafile) as f:
@@ -287,3 +289,4 @@ def artifact_to_wheel(path):
     _group_files(wheel, info)
     wheel.write()
     rmtree(tmpdir, force=True)
+    return wheel

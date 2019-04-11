@@ -1,3 +1,7 @@
+# conda-press ignores
+tests/artifact-cache/
+*.whl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
