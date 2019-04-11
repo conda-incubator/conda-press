@@ -1,5 +1,6 @@
 """Tools for representing wheels in-memory"""
 import os
+import sys
 import base64
 from hashlib import sha256
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
@@ -110,6 +111,7 @@ class Wheel:
         self.noarch_python = False
         self.basedir = None
         self.entry_points = []
+        self.moved_shared_libs = []
         self._records = [(f"{distribution}-{version}.dist-info/RECORD", "", "")]
         self._scripts = []
         self._includes = []
@@ -158,6 +160,9 @@ class Wheel:
 
     @property
     def files(self):
+
+
+
         return self._files
 
     @files.setter
@@ -288,3 +293,19 @@ class Wheel:
             replacement = shebang + remainder
             with open(fspath, 'wb') as f:
                 f.write(replacement)
+
+    def rewrite_rpaths(self):
+        """Rewrite shared library relative (run) paths, as needed"""
+        for fsname, arcname in self.moved_shared_libs:
+            print(f'rewriting RPATH for {fsname}')
+            fspath = os.path.join(self.basedir, fsname)
+            containing_dir = os.path.dirname(arcname)
+            relpath_to_lib = os.path.relpath("lib/", containing_dir)
+            rpath_to_lib = "$ORIGIN/" + relpath_to_lib
+            if sys.platform.startswith("linux"):
+                current_rpath = $(patchelf --print-rpath @(fspath)).strip()
+                new_rpath = rpath_to_lib + ":" + current_rpath if current_rpath else new_rpath
+                print(f'  new RPATH is {new_rpath}')
+                $(patchelf --set-rpath @(new_rpath) @(fspath))
+            else:
+                raise RuntimeError(f'cannot rewrite RPATHs on {sys.platform}')

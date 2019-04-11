@@ -1,6 +1,7 @@
 """Some tools for converting conda packages to wheels"""
 import os
 import re
+import sys
 import json
 import tarfile
 import tempfile
@@ -133,19 +134,39 @@ def re_site_packages_file():
     return re.compile(r'lib/python\d\.\d/site-packages/(.*)')
 
 
+def is_shared_lib(fname):
+    _, ext = os.path.splitext(fname)
+    if sys.platform.startswith('linux'):
+        rtn = (ext == '.so')
+    elif sys.platform.startswith('darwin'):
+        rtn = (ext == '.dylib')
+    elif sys.platform.startswith('win'):
+        rtn = (ext == '.dll')
+    else:
+        rtn = False
+    return rtn
+
+
 def _remap_site_packages(wheel, info):
     new_files = []
+    moved_so = []
     for fsname, arcname in wheel.files:
         m = re_site_packages_file.match(arcname)
         if m is None:
             new_arcname = arcname
+            moved = False
         else:
             new_arcname = m.group(1)
             if root_ext(new_arcname) in BAD_ROOT_EXTS:
                 # skip other pip metadata
                 continue
-        new_files.append((fsname, new_arcname))
+            moved = True
+        elem = (fsname, new_arcname)
+        new_files.append(elem)
+        if moved and is_shared_lib(new_arcname):
+            moved_so.append(elem)
     wheel.files = new_files
+    wheel.moved_shared_libs = moved_so
 
 
 def major_minor(ver):
@@ -382,6 +403,7 @@ def artifact_to_wheel(path, clean=True):
     elif "python" in info.run_requirements:
         _remap_site_packages(wheel, info)
     wheel.rewrite_python_shebang()
+    wheel.rewrite_rpaths()
     wheel.entry_points = info.entry_points
     wheel.write()
     if clean:
