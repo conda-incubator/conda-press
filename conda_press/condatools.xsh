@@ -222,6 +222,7 @@ class ArtifactInfo:
 
     @property
     def abi_tag(self):
+        # explanation of ABI tag at https://www.python.org/dev/peps/pep-0425/#abi-tag
         if self._abi_tag is not None:
             return self._abi_tag
         if self.python_tag == 'py2.py3':
@@ -230,6 +231,7 @@ class ArtifactInfo:
         elif self.python_tag == "cp3":
             atag = "abi3"
         elif self.python_tag.startswith('cp'):
+            # explanation of ABI suffix at https://www.python.org/dev/peps/pep-3149/
             atag = self.python_tag + 'm'
         else:
             # could not determine, use no-arch setting
