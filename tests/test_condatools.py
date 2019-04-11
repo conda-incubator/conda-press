@@ -27,7 +27,6 @@ def test_scripts_to_bin(pip_install_artifact):
     assert proc.stdout.strip() == "patchelf 0.9"
 
 
+def test_entrypoints(pip_install_artifact):
+    wheel, test_env, sp = pip_install_artifact("noarch/conda-smithy=3.3.2")
 
-
-#def test_entrypoints(pip_install_artifact):
-#    wheel, test_env, sp = pip_install_artifact("conda-smithy=3.3.2")

@@ -190,7 +190,7 @@ class ArtifactInfo:
     @property
     def noarch(self):
         if self._noarch is not None:
-            return self._noarch:
+            return self._noarch
         if self.index_json is not None:
             na = self.index_json.get('noarch', False)
         elif self.meta_yaml is not None:
@@ -207,12 +207,14 @@ class ArtifactInfo:
             return self._python_tag
         if 'python' in self.run_requirements:
             pyver = self.run_requirements['python']
-            if pyver:
+            if self.noarch == "python":
+                pytag = 'py2.py3'
+            elif pyver:
                 if pyver.startswith('=='):
                     pytag = 'cp' + ''.join(major_minor(pyver[2:]))
                 elif pyver[0].isdigit():
                     pytag = 'cp' + ''.join(major_minor(pyver))
-                elif pytag.startswith('>='):
+                elif pyver.startswith('>='):
                     pytag = 'cp' + major_minor(pyver)[0]
                 else:
                     # couldn't choose, pick no-arch
@@ -231,7 +233,9 @@ class ArtifactInfo:
         # explanation of ABI tag at https://www.python.org/dev/peps/pep-0425/#abi-tag
         if self._abi_tag is not None:
             return self._abi_tag
-        if self.python_tag == 'py2.py3':
+        if self.noarch:
+            atag = "none"
+        elif self.python_tag == 'py2.py3':
             # no arch or no Python dependnce
             atag = 'none'
         elif self.python_tag == "cp3":

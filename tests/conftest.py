@@ -36,7 +36,11 @@ def subdir_data_noarch():
 
 
 def download_artifact(artifact_ref):
-    subdir_data = subdir_data_noarch if artifact_ref.startswith('noarch/') else subdir_data_arch
+    if artifact_ref.startswith('noarch/'):
+        subdir_data = subdir_data_noarch
+        _, _, artifact_ref = artifact_ref.partition("/")
+    else:
+        subdir_data = subdir_data_arch
     pkg_records = subdir_data.query(artifact_ref)
     if pkg_records:
         pkg_record = pkg_records[-1]
