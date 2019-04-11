@@ -1,9 +1,11 @@
 """Some tools for converting conda packages to wheels"""
 import os
+import re
 import json
 import tarfile
 import tempfile
 
+from lazyasd import lazyobject
 from xonsh.lib.os import rmtree, indir
 
 from ruamel.yaml import YAML
@@ -104,17 +106,44 @@ def _group_files(wheel, info):
     wheel.files = _defer_symbolic_links(files)
 
 
+def root_ext(s):
+    """gets the extnstion of the root directory"""
+    return os.path.splitext(s.split("/")[0])[1]
+
+
+BAD_ROOT_EXTS = frozenset([".egg-info", ".dist-info"])
+
+
 def _remap_noarch_python(wheel, info):
     new_files = []
     for fsname, arcname in wheel.files:
         if arcname.startswith('site-packages/'):
-            ""
             new_arcname = arcname[14:]
-            if os.path.splitext(new_arcname.split("/")[0])[1] == ".egg-info":
+            if root_ext(new_arcname) in BAD_ROOT_EXTS:
                 # skip other pip metadata
                 continue
         else:
             new_arcname = arcname
+        new_files.append((fsname, new_arcname))
+    wheel.files = new_files
+
+
+@lazyobject
+def re_site_packages_file():
+    return re.compile(r'lib/python\d\.\d/site-packages/(.*)')
+
+
+def _remap_site_packages(wheel, info):
+    new_files = []
+    for fsname, arcname in wheel.files:
+        m = re_site_packages_file.match(arcname)
+        if m is None:
+            new_arcname = arcname
+        else:
+            new_arcname = m.group(1)
+            if root_ext(new_arcname) in BAD_ROOT_EXTS:
+                # skip other pip metadata
+                continue
         new_files.append((fsname, new_arcname))
     wheel.files = new_files
 
@@ -350,6 +379,8 @@ def artifact_to_wheel(path, clean=True):
     if info.noarch == "python":
         wheel.noarch_python = True
         _remap_noarch_python(wheel, info)
+    elif "python" in info.run_requirements:
+        _remap_site_packages(wheel, info)
     wheel.entry_points = info.entry_points
     wheel.write()
     if clean:
