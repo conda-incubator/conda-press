@@ -84,15 +84,19 @@ def _defer_symbolic_links(files):
             first.append(f)
     return first + defer
 
-def _group_files(wheel, pkg_files):
+def _group_files(wheel, info):
     scripts = []
     includes = []
     files = []
-    for fname in pkg_files:
+    for fname in info.files:
         if fname.startswith('bin/'):
             scripts.append(fname)
-        elif fname.startswith('include/'):
-            includes.append(fname)
+        #elif fname.startswith('include/'):
+        # pip places files into "include/site/pythonX.Y/package/" rather
+        # than "includes/" This should be reserved for python packages that
+        # expect this behavior, and we'll dump the other includes into
+        # site-packages, like with lib, etc.
+        #    includes.append(fname)
         else:
             files.append(fname)
     wheel.scripts = _defer_symbolic_links(scripts)
@@ -280,6 +284,6 @@ def artifact_to_wheel(path):
     wheel = Wheel(name, version, build_tag=build, python_tag=info.python_tag,
                   abi_tag=info.abi_tag, platform_tag=info.platform_tag)
     wheel.basedir = tmpdir
-    _group_files(wheel, info.files)
+    _group_files(wheel, info)
     wheel.write()
     rmtree(tmpdir, force=True)
