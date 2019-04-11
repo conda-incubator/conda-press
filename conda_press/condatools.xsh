@@ -110,9 +110,9 @@ def _remap_noarch_python(wheel, info):
         if arcname.startswith('site-packages/'):
             ""
             new_arcname = arcname[14:]
-            if os.path.splitext(new_arcname.split("/")[0])[1] == ".egg-info":
+            #if os.path.splitext(new_arcname.split("/")[0])[1] == ".egg-info":
                 # skip other pip metadata
-                continue
+            #    continue
         else:
             new_arcname = arcname
         new_files.append((fsname, new_arcname))

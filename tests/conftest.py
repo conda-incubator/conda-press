@@ -67,7 +67,7 @@ def pip_install_artifact(request):
         if sys.platform.startswith('win'):
             raise RuntimeError("cannot activate on windows yet")
         else:
-            code = f"source {test_env}/bin/activate; pip install {wheel.filename}"
+            code = f"source {test_env}/bin/activate; pip install -vvv {wheel.filename}"
             subprocess.run(["bash", "-c", code], check=True)
         return wheel, test_env, site_packages
 
