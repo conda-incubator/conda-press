@@ -25,15 +25,21 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), 'artifact-cache')
 
 
 @lazyobject
-def subdir_data():
+def subdir_data_arch():
     subdir = PLATFORM_TO_SUBDIR[sys.platform]
     return SubdirData('conda-forge/' + subdir)
 
 
+@lazyobject
+def subdir_data_noarch():
+    return SubdirData('conda-forge/noarch')
+
+
 def download_artifact(artifact_ref):
+    subdir_data = subdir_data_noarch if artifact_ref.startswith('noarch/') else subdir_data_arch
     pkg_records = subdir_data.query(artifact_ref)
     if pkg_records:
-        pkg_record = pkg_records[0]
+        pkg_record = pkg_records[-1]
     else:
         raise RuntimeError(f"could not find {artifact_ref} on conda-forge")
     os.makedirs(CACHE_DIR, exist_ok=True)
