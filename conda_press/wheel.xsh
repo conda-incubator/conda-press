@@ -41,18 +41,21 @@ def _normalize_path_mappings(value, basedir, arcbase='.'):
         elem = value[i]
         if isinstance(elem, str):
             fsname = arcname = elem
+            norm_arcname = True
         elif isinstance(elem, Sequence) and len(elem) == 2:
             fsname, arcname = elem
+            norm_arcname = False
         else:
             raise TypeError(f'{elem!r} (value[{i}]) has the wrong type')
         # normalize fsname
         if os.path.isabs(fsname):
             fsname = os.path.relpath(fname, basedir)
         # normalize arcpath
-        if arcbase == '.':
-            arcname = fsname
-        else:
-            arcname = os.path.join(arcbase, os.path.basename(arcname))
+        if norm_arcname:
+            if arcbase == '.':
+                arcname = fsname
+            else:
+                arcname = os.path.join(arcbase, os.path.basename(arcname))
         # repack
         value[i] = (fsname, arcname)
     return value

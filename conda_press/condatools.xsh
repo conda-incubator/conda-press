@@ -104,6 +104,21 @@ def _group_files(wheel, info):
     wheel.files = _defer_symbolic_links(files)
 
 
+def _remap_noarch_python(wheel, info):
+    new_files = []
+    for fsname, arcname in wheel.files:
+        if arcname.startswith('site-packages/'):
+            ""
+            new_arcname = arcname[14:]
+            if os.path.splitext(new_arcname.split("/")[0])[1] == ".egg-info":
+                # skip other pip metadata
+                continue
+        else:
+            new_arcname = arcname
+        new_files.append((fsname, new_arcname))
+    wheel.files = new_files
+
+
 def major_minor(ver):
     major, _, extra = ver.partition('.')
     minor, _, extra = extra.partition('.')
@@ -170,7 +185,6 @@ class ArtifactInfo:
             self.meta_yaml = None
         # load file listing
         self._load_files()
-        # load link_json
         # clean up lazy values
         self._python_tag = None
         self._abi_tag = None
@@ -313,6 +327,8 @@ def artifact_to_wheel(path):
                   abi_tag=info.abi_tag, platform_tag=info.platform_tag)
     wheel.basedir = tmpdir
     _group_files(wheel, info)
+    if info.noarch == "python":
+        _remap_noarch_python(wheel, info)
     wheel.entry_points = info.entry_points
     wheel.write()
     rmtree(tmpdir, force=True)
