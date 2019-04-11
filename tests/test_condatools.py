@@ -1,5 +1,7 @@
 import os
+import sys
 import stat
+import glob
 import subprocess
 
 import pytest
@@ -33,3 +35,19 @@ def test_entrypoints(pip_install_artifact):
     assert os.path.isfile(exc)
     assert isexecutable(exc)
 
+
+def test_numpy(pip_install_artifact):
+    wheel, test_env, sp = pip_install_artifact("numpy=1.14.6")
+    exc = os.path.join(test_env, 'bin', 'f2py')
+    assert os.path.isfile(exc)
+    assert isexecutable(exc)
+    with open(exc, 'r') as f:
+        shebang = f.readline()
+    assert shebang.startswith('#!')
+    assert 'conda' not in shebang
+    assert 'python' in shebang
+    if sys.platform.startswith('linux'):
+        multiarray = glob.glob(os.path.join(sp, 'numpy', 'core', 'multiarray.*so'))
+        malib = multiarray[-1]
+        proc = subprocess.run(['patchelf', '--print-rpath', malib], check=True, encoding="utf-8", stdout=subprocess.PIPE)
+        assert "lib" in proc.stdout

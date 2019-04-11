@@ -37,11 +37,27 @@ def subdir_data_noarch():
 
 def download_artifact(artifact_ref):
     if artifact_ref.startswith('noarch/'):
+        noarch = True
         subdir_data = subdir_data_noarch
         _, _, artifact_ref = artifact_ref.partition("/")
     else:
+        noarch = False
         subdir_data = subdir_data_arch
     pkg_records = subdir_data.query(artifact_ref)
+
+    # if a python package, get only the ones matching this versuon of python
+    pytag = "py{vi.major}{vi.minor}".format(vi=sys.version_info)
+    if noarch:
+        pass
+    else:
+        filtered_records = []
+        for r in pkg_records:
+            if 'py' in r.build:
+                if pytag in r.build:
+                    filtered_records.append(r)
+            else:
+                filtered_records.append(r)
+        pkg_records = filtered_records
     if pkg_records:
         pkg_record = pkg_records[-1]
     else:
