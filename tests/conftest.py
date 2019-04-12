@@ -12,7 +12,7 @@ from xonsh.lib.os import rmtree
 
 from conda.api import SubdirData
 
-from conda_press.condatools import artifact_to_wheel
+from conda_press.condatools import artifact_to_wheel, CACHE_DIR
 
 
 PLATFORM_TO_SUBDIR = {
@@ -20,8 +20,6 @@ PLATFORM_TO_SUBDIR = {
     "win32": "win-64",
     "darwin": "osx-64",
 }
-
-CACHE_DIR = os.path.join(os.path.dirname(__file__), 'artifact-cache')
 
 
 @lazyobject
@@ -94,6 +92,8 @@ def pip_install_artifact(request):
         return wheel, test_env, site_packages
 
     yield create_wheel_and_install
+    if wheel is not None:
+        wheel.clean()
     rmtree(test_env, force=True)
     wheels = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
     for w in wheels:

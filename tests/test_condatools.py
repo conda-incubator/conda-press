@@ -51,3 +51,7 @@ def test_numpy(pip_install_artifact):
         malib = multiarray[-1]
         proc = subprocess.run(['patchelf', '--print-rpath', malib], check=True, encoding="utf-8", stdout=subprocess.PIPE)
         assert "lib" in proc.stdout
+
+
+def test_libcblas(pip_install_artifact):
+    wheel, test_env, sp = pip_install_artifact("libcblas=3.8.0=4_mkl")

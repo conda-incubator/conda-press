@@ -121,6 +121,10 @@ class Wheel:
     def __repr__(self):
         return f'{self.__class__.__name__}({self.filename})'
 
+    def clean(self):
+        if self.artifact_info is not None:
+            self.artifact_info.clean()
+
     @property
     def filename(self):
         parts = [self.distribution, self.version]

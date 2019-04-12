@@ -12,7 +12,15 @@ from xonsh.lib.os import rmtree, indir
 
 from ruamel.yaml import YAML
 
+import requests
+
+from conda.api import SubdirData
+
 from conda_press.wheel import Wheel
+
+
+CACHE_DIR = os.path.join(tempfile.gettempdir(), 'artifact-cache')
+DEFAULT_CHANNELS = ('conda-forge', 'defaults')
 
 
 def wheel_safe_build(build, build_string=None):
@@ -189,15 +197,82 @@ PLATFORM_SUBDIRS_TO_TAGS = {
 }
 
 
-def find_link_target(source, info=None):
+def download_artifact(artifact_ref, channels=None, subdir=None):
+    """Searches for an artifact on a variety of channels. If subdir is not
+    given, only "noarch" is used. Noarch is searched after the given subdit.
+    """
+    channels = DEFAULT_CHANNELS if channels is None else channels
+    for channel in channels:
+        # check subdir
+        if subdir is not None:
+            subdir_data = SubdirData(channel + "/" + subdir)
+            pkg_records = subdir_data.query(artifact_ref)
+            if pkg_records:
+                noarch = False
+                break
+        # check noarch
+        subdir_data = SubdirData(channel + "/noarch")
+        pkg_records = subdir_data.query(artifact_ref)
+        if pkg_records:
+            noarch = True
+            break
+    else:
+        raise RuntimeError(f"could not find {artifact_ref} on {channels} for {subdir}")
+
+    # if a python package, get only the ones matching this versuon of python
+    pytag = "py{vi.major}{vi.minor}".format(vi=sys.version_info)
+    if noarch:
+        pass
+    else:
+        filtered_records = []
+        for r in pkg_records:
+            if 'py' in r.build:
+                if pytag in r.build:
+                    filtered_records.append(r)
+            else:
+                filtered_records.append(r)
+        pkg_records = filtered_records
+    if pkg_records:
+        pkg_record = pkg_records[-1]
+    else:
+        raise RuntimeError(f"could not find {artifact_ref} on {channels}")
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    local_fn = os.path.join(CACHE_DIR, pkg_record.fn)
+    if os.path.isfile(local_fn):
+        return local_fn
+    resp = requests.get(pkg_record.url)
+    with open(local_fn, 'wb') as f:
+        f.write(resp.content)
+    return local_fn
+
+
+def find_link_target(source, info=None, channels=None, deps_cache=None):
     target = os.readlink(source)
     start = os.path.dirname(source)
     tgtfile = os.path.join(start, target)
     if not os.path.exists(tgtfile):
-        # not in this artifact, need to do dependcey search
-        raise NotImplementedError
+        # not in this artifact, need to do dependency search
+        tgtrel = os.path.relpath(tgtfile, info.artifactdir)
+        dc = {} if deps_cache is None else deps_cache
+        for name, ver_build in info.run_requirements.items():
+            dep_ref = name + "=" + ver_build.replace(" ", "=")
+            if dep_ref in dc:
+                dep = dc[dep_ref]
+            else:
+                depfile = download_artifact(dep_ref, channels=channels, subdir=info.subdir)
+                dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False)
+            tgtdep = os.path.join(dep.artifactdir, tgtrel)
+            rtn = find_link_target(tgtdep, info=dep, channels=channels, deps_cache=dc)
+            if rtn is not None:
+                break
+        else:
+            tgtfile = None
+        if deps_cache is None:
+            # clean up, if we are the last call
+            for key, dep in deps_cache.items():
+                dep.clean()
     elif os.path.islink(tgtfile):
-        # target is anothetr symlink! need to go further
+        # target is another symlink! need to go further
         rtn = find_link_target(source, info=info)
     else:
         rtn = tgtfile
@@ -221,7 +296,7 @@ class ArtifactInfo:
         self.files = None
         self.artifactdir = artifactdir
 
-    def __del__(self):
+    def clean(self):
         rmtree(self._artifactdir, force=True)
 
     @property
@@ -230,6 +305,8 @@ class ArtifactInfo:
 
     @artifactdir.setter
     def artifactdir(self, value):
+        if self._artifactdir is not None:
+            self.clean()
         self._artifactdir = value
         # load index.json
         idxfile = os.path.join(value, 'info', 'index.json')
@@ -386,8 +463,12 @@ class ArtifactInfo:
         self._entry_points = ep
         return self._entry_points
 
+    @property
+    def subdir(self):
+        return self.index_json["subdir"]
+
     @classmethod
-    def from_tarball(cls, path):
+    def from_tarball(cls, path, replace_symlinks=True):
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -402,7 +483,8 @@ class ArtifactInfo:
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
         info = cls(tmpdir)
-        info.replace_symlinks()
+        if replace_symlinks:
+            info.replace_symlinks()
         return info
 
     def replace_symlinks(self):
@@ -413,7 +495,7 @@ class ArtifactInfo:
             if not os.path.islink(absname):
                 # file is not a symlink, we can skip
                 continue
-            target = find_link_target(absname, info=info)
+            target = find_link_target(absname, info=self)
             shutil.copy2(target, abspath, follow_symlinks=False)
 
 
