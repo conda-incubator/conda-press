@@ -273,7 +273,7 @@ def find_link_target(source, info=None, channels=None, deps_cache=None):
                 dep.clean()
     elif os.path.islink(tgtfile):
         # target is another symlink! need to go further
-        rtn = find_link_target(source, info=info)
+        rtn = find_link_target(tgtfile, info=info, channels=channels, deps_cache=deps_cache)
     else:
         rtn = tgtfile
     return tgtfile
