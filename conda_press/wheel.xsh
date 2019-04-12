@@ -110,6 +110,7 @@ class Wheel:
         self.platform_tag = platform_tag
         self.noarch_python = False
         self.basedir = None
+        self.artifact_info = None
         self.entry_points = []
         self.moved_shared_libs = []
         self._records = [(f"{distribution}-{version}.dist-info/RECORD", "", "")]
@@ -160,9 +161,6 @@ class Wheel:
 
     @property
     def files(self):
-
-
-
         return self._files
 
     @files.setter

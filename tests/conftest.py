@@ -79,7 +79,7 @@ def pip_install_artifact(request):
     def create_wheel_and_install(artifact_ref):
         nonlocal wheel
         artifact_path = download_artifact(artifact_ref)
-        wheel = artifact_to_wheel(artifact_path, clean=False)
+        wheel = artifact_to_wheel(artifact_path)
         subprocess.run(['virtualenv', test_env], check=True)
         site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
         if sys.platform.startswith('win'):
@@ -95,7 +95,6 @@ def pip_install_artifact(request):
 
     yield create_wheel_and_install
     rmtree(test_env, force=True)
-    rmtree(wheel.basedir, force=True)
     wheels = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
     for w in wheels:
         os.remove(w)

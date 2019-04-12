@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import json
+import shutil
 import tarfile
 import tempfile
 
@@ -31,21 +32,21 @@ def wheel_safe_build(build, build_string=None):
     return build
 
 
-def index_json_exists(basedir=None, fname=None, info=None):
+def index_json_exists(info=None):
     return info.index_json is not None
 
 
-def package_spec_from_index_json(basedir=None, fname=None, info=None):
+def package_spec_from_index_json(info=None):
     idx = info.index_json
     build = wheel_safe_build(str(idx.get("build_number", "0")), idx.get("build", None))
     return idx["name"], idx["version"], build
 
 
-def meta_yaml_exists(basedir=None, fname=None, info=None):
+def meta_yaml_exists(info=None):
     return info.meta_yaml is not None
 
 
-def package_spec_from_meta_yaml(basedir=None, fname=None, info=None):
+def package_spec_from_meta_yaml(info=None):
     meta_yaml = info.meta_yaml
     name = meta_yaml['package']['name']
     version = meta_yaml['package']['version']
@@ -55,12 +56,14 @@ def package_spec_from_meta_yaml(basedir=None, fname=None, info=None):
     return name, version, build
 
 
-def valid_package_name(basedir=None, fname=None, info=None):
+def valid_package_name(info=None):
+    fname = os.path.basename(into.artifactdir)
     return fname.count('-') >= 3
 
 
-def package_spec_from_filename(basedir=None, fname=None, info=None):
-    extra, _, build = extra.rpartition('-')
+def package_spec_from_filename(info=None):
+    fname = os.path.basename(into.artifactdir)
+    extra, _, build = fname.rpartition('-')
     name, _, version = extra.rpartition('-')
     build = os.path.splitext(build)[0]
     if '_' in build:
@@ -186,6 +189,21 @@ PLATFORM_SUBDIRS_TO_TAGS = {
 }
 
 
+def find_link_target(source, info=None):
+    target = os.readlink(source)
+    start = os.path.dirname(source)
+    tgtfile = os.path.join(start, target)
+    if not os.path.exists(tgtfile):
+        # not in this artifact, need to do dependcey search
+        raise NotImplementedError
+    elif os.path.islink(tgtfile):
+        # target is anothetr symlink! need to go further
+        rtn = find_link_target(source, info=info)
+    else:
+        rtn = tgtfile
+    return tgtfile
+
+
 class ArtifactInfo:
     """Representation of artifact info/ directory."""
 
@@ -202,6 +220,9 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
+
+    def __del__(self):
+        rmtree(self._artifactdir, force=True)
 
     @property
     def artifactdir(self):
@@ -365,37 +386,55 @@ class ArtifactInfo:
         self._entry_points = ep
         return self._entry_points
 
+    @classmethod
+    def from_tarball(cls, path):
+        base = os.path.basename(path)
+        if base.endswith('.tar.bz2'):
+            mode = 'r:bz2'
+            canonical_name = base[:-8]
+        elif base.endswith('.tar'):
+            mode - 'r:'
+            canonical_name = base[:-4]
+        else:
+            mode = 'r'
+            canonical_name = base
+        tmpdir = tempfile.mkdtemp(prefix=canonical_name)
+        with tarfile.TarFile.open(path, mode=mode) as tf:
+            tf.extractall(path=tmpdir)
+        info = cls(tmpdir)
+        info.replace_symlinks()
+        return info
 
-def artifact_to_wheel(path, clean=True):
+    def replace_symlinks(self):
+        # this is needed because of https://github.com/pypa/pip/issues/5919
+        # this has to walk the package deps in some cases.
+        for f in self.files:
+            absname = os.path.join(self.artifactdir, f)
+            if not os.path.islink(absname):
+                # file is not a symlink, we can skip
+                continue
+            target = find_link_target(absname, info=info)
+            shutil.copy2(target, abspath, follow_symlinks=False)
+
+
+def artifact_to_wheel(path):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
     # unzip the artifact
-    base = os.path.basename(path)
-    if base.endswith('.tar.bz2'):
-        mode = 'r:bz2'
-        canonical_name = base[:-8]
-    elif base.endswith('.tar'):
-        mode - 'r:'
-        canonical_name = base[:-4]
-    else:
-        mode = 'r'
-        canonical_name = base
-    tmpdir = tempfile.mkdtemp(prefix=canonical_name)
-    with tarfile.TarFile.open(path, mode=mode) as tf:
-        tf.extractall(path=tmpdir)
-    info = ArtifactInfo(tmpdir)
+    info = ArtifactInfo.from_tarball(path)
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
-        if checker(basedir=tmpdir, fname=base, info=info):
-            name, version, build = getter(basedir=tmpdir, fname=base, info=info)
+        if checker(info=info):
+            name, version, build = getter(info=info)
             break
     else:
         raise RuntimeError(f'could not compute name, version, and build for {path!r}')
     # create wheel
     wheel = Wheel(name, version, build_tag=build, python_tag=info.python_tag,
                   abi_tag=info.abi_tag, platform_tag=info.platform_tag)
-    wheel.basedir = tmpdir
+    wheel.artifact_info = info
+    wheel.basedir = info.artifactdir
     _group_files(wheel, info)
     if info.noarch == "python":
         wheel.noarch_python = True
@@ -406,6 +445,4 @@ def artifact_to_wheel(path, clean=True):
     wheel.rewrite_rpaths()
     wheel.entry_points = info.entry_points
     wheel.write()
-    if clean:
-        rmtree(tmpdir, force=True)
     return wheel
