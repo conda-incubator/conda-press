@@ -18,6 +18,15 @@ jobs:
 - job: 'conda-press mac'
   pool:
     vmImage: 'macOS-10.13'
+  strategy:
+    matrix:
+      python36:
+        python.version: '3.6'
+      python37:
+        python.version: '3.7'
+    maxParallel: 4
+  steps:
+  - template: azure-steps.yml
 - job: 'conda-press linux'
   pool:
     vmImage: 'ubuntu-16.04'
