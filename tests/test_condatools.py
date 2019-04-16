@@ -2,7 +2,6 @@ import os
 import sys
 import stat
 import glob
-import pltform
 import subprocess
 
 import pytest
@@ -10,7 +9,7 @@ import pytest
 from conda_press.condatools import SYSTEM, SO_EXT
 
 
-ON_LINUX = platform.system() == "Linux"
+ON_LINUX = SYSTEM == "Linux"
 
 
 skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run on Linux")
