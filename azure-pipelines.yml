@@ -28,7 +28,7 @@ jobs:
       python37:
         python.version: '3.7'
     maxParallel: 4
-  steps
+  steps:
   - template: azure-steps.yml
     parameters:
      platform_deps_space: ""
