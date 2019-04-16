@@ -15,6 +15,7 @@ jobs:
     maxParallel: 4
   steps:
   - template: azure-steps.yml
+    parameters:
      platform_deps_space: ""
      platform_deps_comma: ""
 - job: mac
@@ -44,5 +45,6 @@ jobs:
     maxParallel: 4
   steps:
   - template: azure-steps.yml
+    parameters:
      platform_deps_space: " patchelf"
      platform_deps_comma: ",patchelf"
