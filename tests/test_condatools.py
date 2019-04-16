@@ -28,7 +28,7 @@ def test_no_symlinks(pip_install_artifact):
     assert not os.path.islink(should_be_symlink)
 
 
-@skip_if_not_linux
+@skip_if_not_on_linux
 def test_scripts_to_bin(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("patchelf=0.9")
     exc = os.path.join(test_env, 'bin', 'patchelf')
