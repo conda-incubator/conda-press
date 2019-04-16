@@ -20,7 +20,7 @@ from conda_press.wheel import Wheel
 
 
 CACHE_DIR = os.path.join(tempfile.gettempdir(), 'artifact-cache')
-DEFAULT_CHANNELS = ('conda-forge', 'defaults')
+DEFAULT_CHANNELS = ('conda-forge', 'main', 'r')
 
 
 def wheel_safe_build(build, build_string=None):
@@ -246,34 +246,46 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
     return local_fn
 
 
-def find_link_target(source, info=None, channels=None, deps_cache=None):
-    target = os.readlink(source)
+def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache=None):
+    for name, ver_build in info.run_requirements.items():
+        dep_ref = name + "=" + ver_build.replace(" ", "=")
+        if dep_ref in deps_cache:
+            dep = deps_cache[dep_ref]
+        else:
+            depfile = download_artifact(dep_ref, channels=channels, subdir=info.subdir)
+            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False)
+            deps_cache[dep_ref] = dep
+        tgtdep = os.path.join(dep.artifactdir, relative_source)
+        tgtfile = find_link_target(tgtdep, info=dep, channels=channels, deps_cache=deps_cache, relative_source=relative_source)
+        if tgtfile is not None:
+            break
+    else:
+        tgtfile = None
+    return tgtfile
+
+
+def find_link_target(source, info=None, channels=None, deps_cache=None, relative_source=None):
+    dc = {} if deps_cache is None else deps_cache
+    if os.path.isfile(source):
+        target = os.readlink(source)
+    else:
+        # this dep doesn't have the target, so search recursively
+        if relative_source is None:
+            relative_source = os.path.relpath(source, info.artifactdir)
+        return _find_file_in_artifact(relative_source, info=info, channels=channels, deps_cache=dc)
     start = os.path.dirname(source)
     tgtfile = os.path.join(start, target)
     if not os.path.exists(tgtfile):
         # not in this artifact, need to do dependency search
         tgtrel = os.path.relpath(tgtfile, info.artifactdir)
-        dc = {} if deps_cache is None else deps_cache
-        for name, ver_build in info.run_requirements.items():
-            dep_ref = name + "=" + ver_build.replace(" ", "=")
-            if dep_ref in dc:
-                dep = dc[dep_ref]
-            else:
-                depfile = download_artifact(dep_ref, channels=channels, subdir=info.subdir)
-                dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False)
-            tgtdep = os.path.join(dep.artifactdir, tgtrel)
-            rtn = find_link_target(tgtdep, info=dep, channels=channels, deps_cache=dc)
-            if rtn is not None:
-                break
-        else:
-            tgtfile = None
+        tgtfile = _find_file_in_artifact(tgtrel, info=info, channels=channels, deps_cache=dc)
         if deps_cache is None:
             # clean up, if we are the last call
-            for key, dep in deps_cache.items():
+            for key, dep in dc.items():
                 dep.clean()
     elif os.path.islink(tgtfile):
         # target is another symlink! need to go further
-        rtn = find_link_target(tgtfile, info=info, channels=channels, deps_cache=deps_cache)
+        rtn = find_link_target(tgtfile, info=info, channels=channels, deps_cache=dc)
     else:
         rtn = tgtfile
     return tgtfile
