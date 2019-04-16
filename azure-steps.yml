@@ -10,7 +10,7 @@ steps:
     inputs:
       packageSpecs: 'python=$(python.version) $(deps.space)'
       installOptions: '--strict-channel-priority -c https://metachannel.conda-forge.org/conda-forge/--blacklist=abi,--max-build-no,$(deps.comma)'
-      updateConda: false
+      updateConda: true
     displayName: 'Conda Environment (conda-forge)'
   - script: |
       pip install --no-deps .
