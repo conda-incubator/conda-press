@@ -3,7 +3,7 @@ variables:
   deps.comma: 'conda,requests,xonsh,lazyasd,tqdm,ruamel.yaml,pytest,pytest-flake8,pytest-timeout'
 
 jobs:
-- job: 'conda-press windows'
+- job: windows
   pool:
     vmImage: 'VS2017-Win2016'
   strategy:
@@ -15,7 +15,7 @@ jobs:
     maxParallel: 4
   steps:
   - template: azure-steps.yml
-- job: 'conda-press mac'
+- job: mac
   pool:
     vmImage: 'macOS-10.13'
   strategy:
@@ -27,9 +27,9 @@ jobs:
     maxParallel: 4
   steps:
   - template: azure-steps.yml
-- job: 'conda-press linux'
+- job: linux
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   strategy:
     matrix:
       python36:
