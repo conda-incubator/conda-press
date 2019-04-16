@@ -9,7 +9,7 @@ steps:
   - task: CondaEnvironment@1
     inputs:
       packageSpecs: 'python=$(python.version) $(deps.space)'
-      installOptions: '--strict-channel-priority -c https://metachannel.conda-forge.org/c
+      installOptions: '--strict-channel-priority -c https://metachannel.conda-forge.org/conda-forge/--blacklist=abi,--max-build-no,$(deps.comma)'
       updateConda: false
     displayName: 'Conda Environment (conda-forge)'
   - script: |
