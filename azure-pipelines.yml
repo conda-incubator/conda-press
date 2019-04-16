@@ -15,8 +15,8 @@ jobs:
     maxParallel: 4
   steps:
   - template: azure-steps.yml
-     platformdeps.space: ""
-     platformdeps.comma: ""
+     platform_deps_space: ""
+     platform_deps_comma: ""
 - job: mac
   pool:
     vmImage: 'macOS-10.13'
@@ -27,11 +27,11 @@ jobs:
       python37:
         python.version: '3.7'
     maxParallel: 4
-  steps:
+  steps
   - template: azure-steps.yml
     parameters:
-     platformdeps.space: ""
-     platformdeps.comma: ""
+     platform_deps_space: ""
+     platform_deps_comma: ""
 - job: linux
   pool:
     vmImage: 'ubuntu-16.04'
@@ -44,5 +44,5 @@ jobs:
     maxParallel: 4
   steps:
   - template: azure-steps.yml
-     platformdeps.space: " patchelf"
-     platformdeps.comma: ",patchelf"
+     platform_deps_space: " patchelf"
+     platform_deps_comma: ",patchelf"
