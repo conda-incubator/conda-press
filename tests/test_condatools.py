@@ -2,9 +2,18 @@ import os
 import sys
 import stat
 import glob
+import pltform
 import subprocess
 
 import pytest
+
+from conda_press.condatools import SYSTEM, SO_EXT
+
+
+ON_LINUX = platform.system() == "Linux"
+
+
+skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run on Linux")
 
 
 def isexecutable(filepath):
@@ -15,11 +24,12 @@ def isexecutable(filepath):
 def test_no_symlinks(pip_install_artifact):
     # pip cannot unpack real symlinks, so insure it isn't
     wheel, test_env, sp = pip_install_artifact("re2=2016.11.01")
-    should_be_symlink = os.path.join(sp, 'lib', 'libre2.so')
+    should_be_symlink = os.path.join(sp, 'lib', 'libre2' _ SO_EXT)
     assert os.path.isfile(should_be_symlink)
     assert not os.path.islink(should_be_symlink)
 
 
+@skip_if_not_linux
 def test_scripts_to_bin(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("patchelf=0.9")
     exc = os.path.join(test_env, 'bin', 'patchelf')
@@ -55,5 +65,11 @@ def test_numpy(pip_install_artifact):
 
 def test_libcblas(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("libcblas=3.8.0=4_mkl")
-    linked = os.path.join(sp, 'lib', 'libcblas.so.3')
+    if SYSTEM == "Linux":
+        fname = 'libcblas.so.3'
+    elif SYSTEM == "Darwin":
+        fname = "libcblas.3.dylib"
+    else:
+        fname = None
+    linked = os.path.join(sp, 'lib', fname)
     assert os.path.isfile(linked)
