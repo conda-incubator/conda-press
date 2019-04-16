@@ -2,41 +2,31 @@ variables:
   deps.space: 'conda requests xonsh lazyasd tqdm ruamel.yaml pytest pytest-flake8 pytest-timeout'
   deps.comma: 'conda,requests,xonsh,lazyasd,tqdm,ruamel.yaml,pytest,pytest-flake8,pytest-timeout'
 
-
 jobs:
-
-- job: 'conda_press_windows'
+- job: 'conda-press windows'
   pool:
     vmImage: 'VS2017-Win2016'
   strategy:
     matrix:
-      Python36:
+      python36:
         python.version: '3.6'
-      Python37:
+      python37:
         python.version: '3.7'
     maxParallel: 4
-
   steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      architecture: 'x64'
-
-  # Conda Environment
-  # Create and activate a Conda environment.
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'python=$(python.version) $(deps.space)'
-      installOptions: '--strict-channel-priority -c https://metachannel.conda-forge.org/conda-forge/--blacklist=abi,--max-build-no,$(deps.comma)'
-      updateConda: false
-    displayName: 'Conda Environment (conda-forge)'
-  - script: |
-      pip install --no-deps .
-      pytest -sv --timeout=10 --junitxml=junit/test-results.xml
-    displayName: 'Tests'
-
-  # Publish build results
-  - task: PublishTestResults@2
-    inputs:
-      testResultsFiles: '**/test-*.xml'
-      testRunTitle: 'Publish test results for Python $(python.version)'
+  - template: azure-steps.yml
+- job: 'conda-press mac'
+  pool:
+    vmImage: 'macOS-10.13'
+- job: 'conda-press linux'
+  pool:
+    vmImage: 'ubuntu-16.04'
+  strategy:
+    matrix:
+      python36:
+        python.version: '3.6'
+      python37:
+        python.version: '3.7'
+    maxParallel: 4
+  steps:
+  - template: azure-steps.yml
