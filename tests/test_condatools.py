@@ -55,3 +55,5 @@ def test_numpy(pip_install_artifact):
 
 def test_libcblas(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("libcblas=3.8.0=4_mkl")
+    linked = os.path.join(sp, 'lib', 'libcblas.so.3')
+    assert os.path.isfile(linked)
