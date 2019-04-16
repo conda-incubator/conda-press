@@ -13,7 +13,7 @@ steps:
       updateConda: true
     displayName: 'Conda Environment (conda-forge)'
   - script: |
-      pip install --no-deps .
+      pip install --no-deps ${{ parameters.pip_flags }} .
       pytest -sv --timeout=300 --junitxml=junit/test-results.xml
     displayName: 'Tests'
 
