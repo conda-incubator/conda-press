@@ -72,3 +72,12 @@ def test_libcblas(pip_install_artifact):
         fname = None
     linked = os.path.join(sp, 'lib', fname)
     assert os.path.isfile(linked)
+
+
+def test_nasm_executes(pip_install_artifact):
+    wheel, test_env, sp = pip_install_artifact("nasm=2.13.02")
+    exc = os.path.join(test_env, 'bin', 'nasm')
+    assert os.path.isfile(exc)
+    assert isexecutable(exc)
+    proc = subprocess.run([exc, "-v"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
+    assert proc.stdout.strip().startswith("NASM version 2.13.02")
