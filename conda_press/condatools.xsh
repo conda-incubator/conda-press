@@ -256,10 +256,20 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
     return local_fn
 
 
+def ref_name(name, ver_build=None):
+    if ver_build is None:
+        rtn = name
+    elif ver_build[0].isdigit():
+        rtn = name + "=" + ver_build.replace(" ", "=")
+    else:
+        rtn = name + ver_build.replace(" ", "=")
+    return rtn
+
+
 def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache=None):
     tgtfile = None
     for name, ver_build in info.run_requirements.items():
-        dep_ref = name + "=" + ver_build.replace(" ", "=")
+        dep_ref = ref_name(name, ver_build=ver_build)
         if dep_ref in deps_cache:
             dep = deps_cache[dep_ref]
         else:
@@ -531,7 +541,11 @@ class ArtifactInfo:
             if target is None:
                 raise RuntimeError(f"Could not find link target of {absname}")
             print(f"Replacing {absname} with {target}")
-            shutil.copy2(target, absname, follow_symlinks=False)
+            try:
+                shutil.copy2(target, absname, follow_symlinks=False)
+            except shutil.SameFileError:
+                os.remove(absname)
+                shutil.copy2(target, absname, follow_symlinks=False)
             # clean up after the copy
             for key, dep in deps_cache.items():
                 dep.clean()
@@ -566,3 +580,25 @@ def artifact_to_wheel(path):
     wheel.entry_points = info.entry_points
     wheel.write()
     return wheel
+
+
+def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None):
+    """Converts a package ref spec to a wheel."""
+    path = download_artifact(artifact_ref, channels=channels, subdir=subdir)
+    wheel = artifact_to_wheel(path)
+    return wheel
+
+
+def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None, seen=None):
+    """Converts all artifact dependncies to wheels"""
+    seen = {} if seen is None else seen
+    if artifact_ref in seen:
+        wheel = seen[artifact_ref]
+    else:
+        wheel = artifact_ref_to_wheel(artifact_ref, channels=channels, subdir=subdir)
+        seen[artifact_ref] = wheel
+    # now loop through deps
+    info = wheel.artifact_info
+    for dep, ver_build in info.run_requirements.items():
+        dep_ref = ref_name(dep, ver_build=ver_build)
+        artifact_ref_to_wheel(dep_ref, channels=channels, subdir=subdir)

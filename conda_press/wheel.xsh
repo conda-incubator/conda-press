@@ -127,7 +127,7 @@ class Wheel:
 
     @property
     def filename(self):
-        parts = [self.distribution, self.version]
+        parts = [self.distribution.replace("-", "_"), self.version]
         if self.build_tag is not None and not self.noarch_python:
             parts.append(self.build_tag)
         parts.extend([self.python_tag, self.abi_tag, self.platform_tag])
