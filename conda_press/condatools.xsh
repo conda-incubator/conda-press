@@ -294,7 +294,6 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
 
 def find_link_target(source, info=None, channels=None, deps_cache=None, relative_source=None):
     dc = {} if deps_cache is None else deps_cache
-    #import pdb; pdb.set_trace()
     if os.path.islink(source):
         target = os.readlink(source)
         start = os.path.dirname(source)

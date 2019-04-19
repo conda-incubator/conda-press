@@ -311,3 +311,31 @@ class Wheel:
                 $(patchelf --set-rpath @(new_rpath) @(fspath))
             else:
                 raise RuntimeError(f'cannot rewrite RPATHs on {sys.platform}')
+
+    def rewrite_scripts_linking(self):
+        """Write wrapper scripts so that dynamic linkings in the
+        site-packages/lib/ directory will be picked up. These are
+        platform specific.
+        """
+        subdir = self.artifact_info.subdir
+        if subdir.startswith("linux"):
+            self.rewrite_scripts_linking_linux()
+        elif subdir.startswith("osx"):
+            self.rewrite_scripts_linking_osx()
+        elif subdir.startswith("win"):
+            self.rewrite_scripts_linking_win()
+        else:
+            raise NotImplementedError("subdir not recognized")
+
+    def rewrite_scripts_linking_linux(self):
+        # first find all of the compiled executables
+        are_binary = []
+        for fsname, arcname in self.scripts:
+            absname = os.path.join(basedir, fsname)
+            with open(absname, 'rb') as f:
+                shebang = f.read(4)
+            if shebang == b'\x7fELF':
+                # script matched magic ELF binary flag
+                are_binary.append((fsname, arcname))
+        # now relocate the binaries inside the archive, write the wrapper script,
+        # and add the wrapper here.
