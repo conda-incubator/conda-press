@@ -348,7 +348,9 @@ class Wheel:
         platform specific.
         """
         subdir = self.artifact_info.subdir
-        if subdir.startswith("linux") or subdir.startswith("osx"):
+        if subdir == "noarch":
+            pass
+        elif subdir.startswith("linux") or subdir.startswith("osx"):
             self.rewrite_scripts_linking_unix()
         elif subdir.startswith("win"):
             self.rewrite_scripts_linking_win()
