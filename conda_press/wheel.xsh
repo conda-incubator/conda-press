@@ -23,6 +23,18 @@ KNOWN_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
 exec "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
 """
+DYNAMIC_SP_WIN_PROXY_SCRIPT = """@echo off\
+FOR /F "tokens=* USEBACKQ" %%F IN (`python -c "from glob import iglob; print(next(iglob('%~dp0\\\\..\\\\lib\\\\python*\\\\site-packages\\\\bin\\\\{basename}')))"`) DO (
+  SET globbedpath=%%F
+)
+start "" /wait "%globbedpath%" %*
+exit /B %ERRORLEVEL%
+"""
+KNOWN_SP_WIN_PROXY_SCRIPT = """@echo off
+start "" /wait "%~dp0\\\\..\\\\lib\\\\python{pymajor}.{pyminor}\\\\site-packages\\\\bin\\\\{basename}" %*
+exit /B %ERRORLEVEL%
+"""
+
 
 @lazyobject
 def re_python_ver():
@@ -373,6 +385,40 @@ class Wheel:
             proxyname = self.write_unix_script_proxy(absname)
             new_files.append((fsname, 'bin/' + basename))
             new_scripts.append((proxyname, arcname))
+        self.files.extend(new_files)
+        self.scripts.clear()
+        self.scripts.extend(new_scripts)
+
+    def write_win_script_proxy(self, absname):
+        root, ext = os.path.splitext(absname)
+        proxyname = root + '-proxy.bat'
+        basename = os.path.basename(absname)
+        # choose the template to fill based on whether we have Python's major/minor
+        # version numbers, or if we have to find the site-packages directory at
+        # run time.
+        m = re_python_ver.match(self.artifact_info.python_tag)
+        if m is None:
+            pymajor = pyminor = None
+            proxy_script = DYNAMIC_SP_WIN_PROXY_SCRIPT
+        else:
+            pymajor, pyminor = m.groups()
+            proxy_script = KNOWN_SP_WIN_PROXY_SCRIPT
+        src = proxy_script.format(basename=basename, pymajor=pymajor, pyminor=pyminor)
+        with open(proxyname, 'w', newline="\r\n") as f:
+            f.write(src)
+        return proxyname
+
+    def rewrite_scripts_linking_win(self):
+        # relocate the binaries inside the archive, write the proxy scripts
+        new_scripts = []
+        new_files = []
+        for fsname, arcname in self.scripts:
+            absname = os.path.join(self.basedir, fsname)
+            basename = os.path.basename(absname)
+            proxyname = self.write_unix_script_proxy(absname)
+            new_files.append((fsname, 'bin/' + basename))
+            arcroot, _ = os.path.splitext(arcname)
+            new_scripts.append((proxyname, arcroot + ".bat"))
         self.files.extend(new_files)
         self.scripts.clear()
         self.scripts.extend(new_scripts)
