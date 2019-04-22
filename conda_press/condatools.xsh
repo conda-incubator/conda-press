@@ -576,6 +576,7 @@ def artifact_to_wheel(path):
         _remap_site_packages(wheel, info)
     wheel.rewrite_python_shebang()
     wheel.rewrite_rpaths()
+    wheel.rewrite_scripts_linking()
     wheel.entry_points = info.entry_points
     wheel.write()
     return wheel

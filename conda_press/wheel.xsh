@@ -1,5 +1,6 @@
 """Tools for representing wheels in-memory"""
 import os
+import re
 import sys
 import base64
 from hashlib import sha256
@@ -7,8 +8,25 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 from collections.abc import Sequence, MutableSequence
 
 from tqdm import tqdm
+from lazyasd import lazyobject
 
 from conda_press import __version__ as VERSION
+
+
+DYNAMIC_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
+current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
+declare -a targets
+targets=$(echo "${{current_dir}}"/../lib/python*/site-packages/bin/{basename})
+exec "${{targets[0]}}" "$@"
+"""
+KNOWN_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
+current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
+exec "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
+"""
+
+@lazyobject
+def re_python_ver():
+    return re.compile(r'^[cp]y(\d)(\d)$')
 
 
 def urlsafe_b64encode_nopad(data):
@@ -327,15 +345,36 @@ class Wheel:
         else:
             raise NotImplementedError("subdir not recognized")
 
+    def write_unix_script_proxy(self, absname):
+        root, ext = os.path.splitext(absname)
+        proxyname = root + '-proxy' + ext
+        basename = os.path.basename(absname)
+        # choose the template to fill based on whether we have Python's major/minor
+        # version numbers, or if we have to find the site-packages directory at
+        # run time.
+        m = re_python_ver.match(self.artifact_info.python_tag)
+        if m is None:
+            pymajor = pyminor = None
+            proxy_script = DYNAMIC_SP_UNIX_PROXY_SCRIPT
+        else:
+            pymajor, pyminor = m.groups()
+            proxy_script = KNOWN_SP_UNIX_PROXY_SCRIPT
+        src = proxy_script.format(basename=basename, pymajor=pymajor, pyminor=pyminor)
+        with open(proxyname, 'w') as f:
+            f.write(src)
+        os.chmod(proxyname, 0o755)
+        return proxyname
+
     def rewrite_scripts_linking_linux(self):
-        # first find all of the compiled executables
-        are_binary = []
+        # relocate the binaries inside the archive, write the proxy scripts
+        new_scripts = []
+        new_files = []
         for fsname, arcname in self.scripts:
-            absname = os.path.join(basedir, fsname)
-            with open(absname, 'rb') as f:
-                shebang = f.read(4)
-            if shebang == b'\x7fELF':
-                # script matched magic ELF binary flag
-                are_binary.append((fsname, arcname))
-        # now relocate the binaries inside the archive, write the wrapper script,
-        # and add the wrapper here.
+            absname = os.path.join(self.basedir, fsname)
+            basename = os.path.basename(absname)
+            proxyname = self.write_unix_script_proxy(absname)
+            new_files.append((fsname, 'bin/' + basename))
+            new_scripts.append((proxyname, arcname))
+        self.files.extend(new_files)
+        self.scripts.clear()
+        self.scripts.extend(new_scripts)
