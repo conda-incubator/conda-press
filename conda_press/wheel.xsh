@@ -336,10 +336,8 @@ class Wheel:
         platform specific.
         """
         subdir = self.artifact_info.subdir
-        if subdir.startswith("linux"):
-            self.rewrite_scripts_linking_linux()
-        elif subdir.startswith("osx"):
-            self.rewrite_scripts_linking_osx()
+        if subdir.startswith("linux") or subdir.startswith("osx"):
+            self.rewrite_scripts_linking_unix()
         elif subdir.startswith("win"):
             self.rewrite_scripts_linking_win()
         else:
@@ -365,7 +363,7 @@ class Wheel:
         os.chmod(proxyname, 0o755)
         return proxyname
 
-    def rewrite_scripts_linking_linux(self):
+    def rewrite_scripts_linking_unix(self):
         # relocate the binaries inside the archive, write the proxy scripts
         new_scripts = []
         new_files = []
