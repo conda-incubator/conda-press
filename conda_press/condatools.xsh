@@ -601,4 +601,5 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
     info = wheel.artifact_info
     for dep, ver_build in info.run_requirements.items():
         dep_ref = ref_name(dep, ver_build=ver_build)
-        artifact_ref_to_wheel(dep_ref, channels=channels, subdir=subdir)
+        artifact_ref_dependency_tree_to_wheels(dep_ref, channels=channels, subdir=subdir, seen=seen)
+    return seen

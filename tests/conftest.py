@@ -12,7 +12,7 @@ from xonsh.lib.os import rmtree
 
 from conda.api import SubdirData
 
-from conda_press.condatools import artifact_to_wheel, CACHE_DIR
+from conda_press.condatools import artifact_to_wheel, CACHE_DIR, artifact_ref_dependency_tree_to_wheels
 
 
 PLATFORM_TO_SUBDIR = {
@@ -97,4 +97,35 @@ def pip_install_artifact(request):
     rmtree(test_env, force=True)
     wheels = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
     for w in wheels:
+        os.remove(w)
+
+
+@pytest.fixture()
+def pip_install_artifact_tree(request):
+    wheels = {}
+    test_env = tempfile.mkdtemp(prefix="test-env")
+    def create_wheels_and_install(artifact_ref):
+        nonlocal wheels
+        subdir = PLATFORM_TO_SUBDIR[sys.platform]
+        artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir)
+        subprocess.run(['virtualenv', test_env], check=True)
+        site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
+        if sys.platform.startswith('win'):
+            raise RuntimeError("cannot activate on windows yet")
+        else:
+            wheel_filenames = " ".join([w.filename for w in wheels.values()])
+            code = f"source {test_env}/bin/activate; pip install {wheel_filenames}"
+            # uncomment the following when we handle dependencies
+            #import_tests = os.path.join(wheel.basedir, 'info', 'test', 'run_test.py')
+            #if os.path.isfile(import_tests):
+            #    code += f"; python {import_tests}"
+            subprocess.run(["bash", "-c", code], check=True)
+        return wheels, test_env, site_packages
+
+    yield create_wheels_and_install
+    for wheel in wheels.values():
+        wheel.clean()
+    rmtree(test_env, force=True)
+    wheel_names = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
+    for w in wheel_names:
         os.remove(w)

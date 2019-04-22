@@ -81,3 +81,13 @@ def test_nasm_executes(pip_install_artifact):
     assert isexecutable(exc)
     proc = subprocess.run([exc, "-v"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
     assert proc.stdout.strip().startswith("NASM version 2.13.02")
+
+
+def test_xz_tree(pip_install_artifact_tree):
+    # tests that execuatbles which link to lib work
+    wheels, test_env, sp = pip_install_artifact_tree("xz=5.2.4=h14c3975_1001")
+    exc = os.path.join(test_env, 'bin', 'xz')
+    assert os.path.isfile(exc)
+    assert isexecutable(exc)
+    proc = subprocess.run([exc, "--version"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
+    assert proc.stdout.strip().startswith("xz (XZ Utils) 5.2.4")
