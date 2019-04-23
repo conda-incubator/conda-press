@@ -9,7 +9,8 @@ import pytest
 from conda_press.condatools import SYSTEM, SO_EXT
 
 
-ON_LINUX = SYSTEM == "Linux"
+ON_LINUX = (SYSTEM == "Linux")
+ON_WINDOWS = (SYSTEM == "Windows")
 
 
 skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run on Linux")
@@ -23,7 +24,10 @@ def isexecutable(filepath):
 def test_no_symlinks(pip_install_artifact):
     # pip cannot unpack real symlinks, so insure it isn't
     wheel, test_env, sp = pip_install_artifact("re2=2016.11.01")
-    should_be_symlink = os.path.join(sp, 'lib', 'libre2' + SO_EXT)
+    if ON_WINDOWS:
+        should_be_symlink = os.path.join(sp, 'Library', 'bin', 're2' + SO_EXT)
+    else:
+        should_be_symlink = os.path.join(sp, 'lib', 'libre2' + SO_EXT)
     assert os.path.isfile(should_be_symlink)
     assert not os.path.islink(should_be_symlink)
 
@@ -40,7 +44,10 @@ def test_scripts_to_bin(pip_install_artifact):
 
 def test_entrypoints(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("noarch/conda-smithy=3.3.2")
-    exc = os.path.join(test_env, 'bin', 'conda-smithy')
+    if ON_WINDOWS:
+        exc = os.path.join(test_env, 'Scripts', 'conda-smithy.exe')
+    else:
+        exc = os.path.join(test_env, 'bin', 'conda-smithy')
     assert os.path.isfile(exc)
     assert isexecutable(exc)
 
