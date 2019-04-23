@@ -79,10 +79,11 @@ def pip_install_artifact(request):
         artifact_path = download_artifact(artifact_ref)
         wheel = artifact_to_wheel(artifact_path)
         subprocess.run(['virtualenv', test_env], check=True)
-        site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
         if sys.platform.startswith('win'):
+            site_packages = os.path.join(test_env, 'Lib', 'site-packages')
             raise RuntimeError("cannot activate on windows yet")
         else:
+            site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
             code = f"source {test_env}/bin/activate; pip install {wheel.filename}"
             # uncomment the following when we handle dependencies
             #import_tests = os.path.join(wheel.basedir, 'info', 'test', 'run_test.py')
