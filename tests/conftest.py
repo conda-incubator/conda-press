@@ -111,11 +111,13 @@ def pip_install_artifact_tree(request):
         subdir = PLATFORM_TO_SUBDIR[sys.platform]
         artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir)
         subprocess.run(['virtualenv', test_env], check=True)
-        site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
+        wheel_filenames = " ".join([w.filename for w in wheels.values()])
         if sys.platform.startswith('win'):
-            raise RuntimeError("cannot activate on windows yet")
+            site_packages = os.path.join(test_env, 'Lib', 'site-packages')
+            code = f"{test_env}\\Scripts\\activate & pip install {wheel_filenames}"
+            subprocess.run(code, check=True, shell=True)
         else:
-            wheel_filenames = " ".join([w.filename for w in wheels.values()])
+            site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
             code = f"source {test_env}/bin/activate; pip install {wheel_filenames}"
             # uncomment the following when we handle dependencies
             #import_tests = os.path.join(wheel.basedir, 'info', 'test', 'run_test.py')

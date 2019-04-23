@@ -266,7 +266,7 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
 
 
 def ref_name(name, ver_build=None):
-    if ver_build is None:
+    if not ver_build:
         rtn = name
     elif ver_build[0].isdigit():
         rtn = name + "=" + ver_build.replace(" ", "=")
@@ -341,6 +341,7 @@ class ArtifactInfo:
         self._entry_points = None
         self.index_json = None
         self.link_json = None
+        self.recipe_json = None
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
@@ -371,6 +372,13 @@ class ArtifactInfo:
                 self.link_json = json.load(f)
         else:
             self.link_json = None
+        # load recipe.json
+        recfile = os.path.join(value, 'info', 'recipe.json')
+        if os.path.isfile(recfile):
+            with open(recfile, 'r') as f:
+                self.recipe_json = json.load(f)
+        else:
+            self.recipe_json = None
         # load meta.yaml
         metafile = os.path.join(value, 'info', 'recipe', 'meta.yaml.rendered')
         if not os.path.exists(metafile):
@@ -378,7 +386,11 @@ class ArtifactInfo:
         if os.path.isfile(metafile):
             yaml = YAML(typ='safe')
             with open(metafile) as f:
-                self.meta_yaml = yaml.load(f)
+                try:
+                    self.meta_yaml = yaml.load(f)
+                except Exception:
+                    print("failed to load meta.yaml")
+                    self.meta_yaml = None
         else:
             self.meta_yaml = None
         # load file listing

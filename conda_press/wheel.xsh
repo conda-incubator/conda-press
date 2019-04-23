@@ -25,7 +25,7 @@ current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )
 exec "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
 """
 WIN_PROXY_SCRIPT = """@echo off
-call "%~dp0\\\\..\\\\Lib\\\\site-packages\\\\Scripts\\\\{basename}" %*
+call "%~dp0\\\\..\\\\Lib\\\\site-packages\\\\{path_to_exe}\\\\{basename}" %*
 exit /B %ERRORLEVEL%
 """
 
@@ -391,11 +391,11 @@ class Wheel:
         self.scripts.clear()
         self.scripts.extend(new_scripts)
 
-    def write_win_script_proxy(self, proxyname, basename):
+    def write_win_script_proxy(self, proxyname, basename, path_to_exe="Scripts"):
         # Windows does not need to choose the template to fill based on whether we have 
         # Python's major/minor version numbers.
         proxy_script = WIN_PROXY_SCRIPT
-        src = proxy_script.format(basename=basename)
+        src = proxy_script.format(basename=basename, path_to_exe=path_to_exe)
         with open(proxyname, 'w', newline="\r\n") as f:
             f.write(src)
         return proxyname
@@ -412,11 +412,28 @@ class Wheel:
             new_files.append((fsname, 'Scripts/' + basename))
             arcroot, _ = os.path.splitext(arcname)
             if proxyname not in new_scripts_map or WIN_EXE_WEIGHTS[ext] > WIN_EXE_WEIGHTS[new_scripts_map[proxyname][2]]:
-                new_scripts_map[proxyname] = (arcroot + ".bat", basename, ext)
+                new_scripts_map[proxyname] = (arcroot + ".bat", basename, ext, "Scripts")
+        # add proxies to executables in non-standard places
+        arcdir = f"{self.distribution}-{self.version}.data/scripts"
+        for fsname in self.artifact_info.files:
+            if fsname.startswith("Scripts/"):
+                # in standard location
+                continue
+            absname = os.path.join(self.basedir, fsname)
+            basename = os.path.basename(absname)
+            root, ext = os.path.splitext(absname)
+            if ext not in WIN_EXE_WEIGHTS:
+                # not an executable
+                continue
+            proxyname = root + '-proxy.bat'
+            arcname = arcdir + "/" + os.path.basename(root) + ".bat"
+            if proxyname not in new_scripts_map or WIN_EXE_WEIGHTS[ext] > WIN_EXE_WEIGHTS[new_scripts_map[proxyname][2]]:
+                path_to_exe = os.path.dirname(fsname).replace("/", "\\\\")
+                new_scripts_map[proxyname] = (arcname, basename, ext, path_to_exe)
         # write proxy files 
         new_scripts = []
-        for proxyname, (arcname, basename, _) in new_scripts_map.items():
-            proxyname = self.write_win_script_proxy(proxyname, basename)
+        for proxyname, (arcname, basename, _, path_to_exe) in new_scripts_map.items():
+            proxyname = self.write_win_script_proxy(proxyname, basename, path_to_exe)
             new_scripts.append((proxyname, arcname))
         # fix the script files themselves
         for fsname, _ in new_files:

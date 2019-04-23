@@ -84,18 +84,22 @@ def test_numpy(pip_install_artifact):
 def test_libcblas(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("libcblas=3.8.0=4_mkl")
     if SYSTEM == "Linux":
-        fname = 'libcblas.so.3'
+        fname = os.path.join(sp, 'lib', 'libcblas.so.3')
     elif SYSTEM == "Darwin":
-        fname = "libcblas.3.dylib"
+        fname = os.path.join(sp, 'lib', "libcblas.3.dylib")
+    elif SYSTEM == "Windows":
+        fname = os.path.join(sp, 'Library', 'bin', "libcblas.dll")
     else:
         fname = None
-    linked = os.path.join(sp, 'lib', fname)
-    assert os.path.isfile(linked)
+    assert os.path.isfile(fname)
 
 
 def test_nasm_executes(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("nasm=2.13.02")
-    exc = os.path.join(test_env, 'bin', 'nasm')
+    if ON_WINDOWS:
+        exc = os.path.join(test_env, 'Scripts', 'nasm.bat')
+    else:
+        exc = os.path.join(test_env, 'bin', 'nasm')
     assert os.path.isfile(exc)
     assert isexecutable(exc)
     proc = subprocess.run([exc, "-v"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
@@ -105,7 +109,10 @@ def test_nasm_executes(pip_install_artifact):
 def test_xz_tree(pip_install_artifact_tree):
     # tests that execuatbles which link to lib work
     wheels, test_env, sp = pip_install_artifact_tree("xz=5.2.4")
-    exc = os.path.join(test_env, 'bin', 'xz')
+    if ON_WINDOWS:
+        exc = os.path.join(test_env, 'Scripts', 'xz.bat')
+    else:
+        exc = os.path.join(test_env, 'bin', 'xz')
     assert os.path.isfile(exc)
     assert isexecutable(exc)
     proc = subprocess.run([exc, "--version"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
