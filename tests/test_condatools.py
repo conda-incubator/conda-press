@@ -76,7 +76,7 @@ def test_numpy(pip_install_artifact):
         assert "lib" in proc.stdout
     # check that we can run f2py
     if ON_WINDOWS:
-        exc = os.path.join(test_env, 'Scripts', 'f2py.exe')
+        exc = os.path.join(test_env, 'Scripts', 'f2py.bat')
     proc = subprocess.run([exc, '-v'], check=True, encoding="utf-8", stdout=subprocess.PIPE)
     assert proc.stdout.startswith("2")
 

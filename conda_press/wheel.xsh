@@ -5,6 +5,7 @@ import sys
 import base64
 from hashlib import sha256
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+from collections import defaultdict
 from collections.abc import Sequence, MutableSequence
 
 from tqdm import tqdm
@@ -23,18 +24,17 @@ KNOWN_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
 exec "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
 """
-DYNAMIC_SP_WIN_PROXY_SCRIPT = """@echo off\
-FOR /F "tokens=* USEBACKQ" %%F IN (`python -c "from glob import iglob; print(next(iglob('%~dp0\\\\..\\\\lib\\\\python*\\\\site-packages\\\\bin\\\\{basename}')))"`) DO (
-  SET globbedpath=%%F
-)
-start "" /wait "%globbedpath%" %*
-exit /B %ERRORLEVEL%
-"""
-KNOWN_SP_WIN_PROXY_SCRIPT = """@echo off
-start "" /wait "%~dp0\\\\..\\\\lib\\\\python{pymajor}.{pyminor}\\\\site-packages\\\\bin\\\\{basename}" %*
+WIN_PROXY_SCRIPT = """@echo off
+call "%~dp0\\\\..\\\\Lib\\\\site-packages\\\\Scripts\\\\{basename}" %*
 exit /B %ERRORLEVEL%
 """
 
+WIN_EXE_WEIGHTS = defaultdict(int, {
+    ".com": 1,
+    ".bat": 2,
+    ".cmd": 3,
+    ".exe": 4,
+})
 
 @lazyobject
 def re_python_ver():
@@ -391,36 +391,46 @@ class Wheel:
         self.scripts.clear()
         self.scripts.extend(new_scripts)
 
-    def write_win_script_proxy(self, absname):
-        root, ext = os.path.splitext(absname)
-        proxyname = root + '-proxy.bat'
-        basename = os.path.basename(absname)
-        # choose the template to fill based on whether we have Python's major/minor
-        # version numbers, or if we have to find the site-packages directory at
-        # run time.
-        m = re_python_ver.match(self.artifact_info.python_tag)
-        if m is None:
-            pymajor = pyminor = None
-            proxy_script = DYNAMIC_SP_WIN_PROXY_SCRIPT
-        else:
-            pymajor, pyminor = m.groups()
-            proxy_script = KNOWN_SP_WIN_PROXY_SCRIPT
-        src = proxy_script.format(basename=basename, pymajor=pymajor, pyminor=pyminor)
+    def write_win_script_proxy(self, proxyname, basename):
+        # Windows does not need to choose the template to fill based on whether we have 
+        # Python's major/minor version numbers.
+        proxy_script = WIN_PROXY_SCRIPT
+        src = proxy_script.format(basename=basename)
         with open(proxyname, 'w', newline="\r\n") as f:
             f.write(src)
         return proxyname
 
     def rewrite_scripts_linking_win(self):
         # relocate the binaries inside the archive, write the proxy scripts
-        new_scripts = []
+        new_scripts_map = {}
         new_files = []
         for fsname, arcname in self.scripts:
             absname = os.path.join(self.basedir, fsname)
             basename = os.path.basename(absname)
-            proxyname = self.write_unix_script_proxy(absname)
-            new_files.append((fsname, 'bin/' + basename))
+            root, ext = os.path.splitext(absname)
+            proxyname = root + '-proxy.bat'
+            new_files.append((fsname, 'Scripts/' + basename))
             arcroot, _ = os.path.splitext(arcname)
-            new_scripts.append((proxyname, arcroot + ".bat"))
+            if proxyname not in new_scripts_map or WIN_EXE_WEIGHTS[ext] > WIN_EXE_WEIGHTS[new_scripts_map[proxyname][2]]:
+                new_scripts_map[proxyname] = (arcroot + ".bat", basename, ext)
+        # write proxy files 
+        new_scripts = []
+        for proxyname, (arcname, basename, _) in new_scripts_map.items():
+            proxyname = self.write_win_script_proxy(proxyname, basename)
+            new_scripts.append((proxyname, arcname))
+        # fix the script files themselves
+        for fsname, _ in new_files:
+            absname = os.path.join(self.basedir, fsname)
+            root, ext = os.path.splitext(fsname)
+            if ext == ".bat":
+                print("munging path in " + fsname)
+                with open(absname, 'r') as f:
+                    fsfile = f.read()
+                fsfile = fsfile.replace(r'@SET "PYTHON_EXE=%~dp0\..\python.exe"', 
+                                        r'@SET "PYTHON_EXE=%~dp0\..\..\..\Scripts\python.exe"')
+                with open(absname, 'w') as f:
+                    f.write(fsfile)
+        # lock in the real values
         self.files.extend(new_files)
         self.scripts.clear()
         self.scripts.extend(new_scripts)

@@ -112,8 +112,9 @@ def _group_files(wheel, info):
     scripts = []
     includes = []
     files = []
+    bindir = "Scripts/" if info.subdir.startswith("win") else "bin/"
     for fname in info.files:
-        if fname.startswith('bin/'):
+        if fname.startswith(bindir):
             scripts.append(fname)
         #elif fname.startswith('include/'):
         # pip places files into "include/site/pythonX.Y/package/" rather
