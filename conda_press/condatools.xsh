@@ -129,7 +129,9 @@ def _group_files(wheel, info):
 
 
 def root_ext(s):
-    """gets the extnstion of the root directory"""
+    """gets the extention of the root directory"""
+    # in info/files, the path separator is always "/"
+    # even on windows
     return os.path.splitext(s.split("/")[0])[1]
 
 
@@ -151,9 +153,14 @@ def _remap_noarch_python(wheel, info):
 
 
 @lazyobject
-def re_site_packages_file():
+def re_site_packages_file_unix():
     return re.compile(r'lib/python\d\.\d/site-packages/(.*)')
 
+
+@lazyobject
+def re_site_packages_file_win():
+    return re.compile(r'Lib/site-packages/(.*)')
+    
 
 def is_shared_lib(fname):
     _, ext = os.path.splitext(fname)
@@ -171,6 +178,7 @@ def is_shared_lib(fname):
 def _remap_site_packages(wheel, info):
     new_files = []
     moved_so = []
+    re_site_packages_file = re_site_packages_file_win if info.subdir.startswith("win") else re_site_packages_file_unix
     for fsname, arcname in wheel.files:
         m = re_site_packages_file.match(arcname)
         if m is None:

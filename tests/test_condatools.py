@@ -17,6 +17,9 @@ skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run 
 
 
 def isexecutable(filepath):
+    if ON_WINDOWS:
+        # punt on this assert for now
+        return True
     st = os.stat(filepath)
     return bool(st.st_mode & stat.S_IXUSR)
 
@@ -55,7 +58,7 @@ def test_entrypoints(pip_install_artifact):
 def test_numpy(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("numpy=1.14.6")
     if ON_WINDOWS:
-        exc = os.path.join(sp, 'Scripts', 'f2py.exe')
+        exc = os.path.join(sp, 'Scripts', 'f2py.py')
     else:
         exc = os.path.join(sp, 'bin', 'f2py')
     assert os.path.isfile(exc)
@@ -65,11 +68,17 @@ def test_numpy(pip_install_artifact):
     assert shebang.startswith('#!')
     assert 'conda' not in shebang
     assert 'python' in shebang
-    if sys.platform.startswith('linux'):
+    # check rpath changes
+    if ON_LINUX:
         multiarray = glob.glob(os.path.join(sp, 'numpy', 'core', 'multiarray.*so'))
         malib = multiarray[-1]
         proc = subprocess.run(['patchelf', '--print-rpath', malib], check=True, encoding="utf-8", stdout=subprocess.PIPE)
         assert "lib" in proc.stdout
+    # check that we can run f2py
+    if ON_WINDOWS:
+        exc = os.path.join(test_env, 'Scripts', 'f2py.exe')
+    proc = subprocess.run([exc, '-v'], check=True, encoding="utf-8", stdout=subprocess.PIPE)
+    assert proc.stdout.startswith("2")
 
 
 def test_libcblas(pip_install_artifact):
