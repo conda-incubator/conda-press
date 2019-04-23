@@ -54,7 +54,10 @@ def test_entrypoints(pip_install_artifact):
 
 def test_numpy(pip_install_artifact):
     wheel, test_env, sp = pip_install_artifact("numpy=1.14.6")
-    exc = os.path.join(sp, 'bin', 'f2py')
+    if ON_WINDOWS:
+        exc = os.path.join(sp, 'Scripts', 'f2py.exe')
+    else:
+        exc = os.path.join(sp, 'bin', 'f2py')
     assert os.path.isfile(exc)
     assert isexecutable(exc)
     with open(exc, 'r') as f:

@@ -12,7 +12,10 @@ def main():
         sys.exit('conda-press currently requires Python 3.4+')
     with open(os.path.join(os.path.dirname(__file__), 'README.md'), 'r') as f:
         readme = f.read()
-    scripts = ['scripts/conda-press']
+    if sys.platform == "win32":
+        scripts = ['scripts/conda-press.bat']
+    else:
+        scripts = ['scripts/conda-press']
     skw = dict(
         name='conda-press',
         description='Press conda packages into wheels',
