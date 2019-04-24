@@ -10,8 +10,10 @@ jobs:
     matrix:
       python36:
         python.version: '3.6'
-      python37:
-        python.version: '3.7'
+      # There is some weird issue with pytest-timeout not working
+      # on Python 3.7 on Windows
+      #python37:
+      #  python.version: '3.7'
     maxParallel: 4
   steps:
   - template: azure-steps.yml
