@@ -33,6 +33,8 @@ def test_no_symlinks(pip_install_artifact):
         should_be_symlink = os.path.join(sp, 'lib', 'libre2' + SO_EXT)
     assert os.path.isfile(should_be_symlink)
     assert not os.path.islink(should_be_symlink)
+    # check the license file
+    assert os.path.isfile(os.path.join(sp, 're2-2016.11.01.dist-info/LICENSE'))
 
 
 @skip_if_not_on_linux

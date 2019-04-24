@@ -224,6 +224,7 @@ class Wheel:
             self.write_entry_points()
             self.write_top_level()
             self.write_metadata()
+            self.write_license_file()
             self.write_wheel_metadata()
             self.write_record()  # This *has* to be the last write
             del self.zf
@@ -242,8 +243,21 @@ class Wheel:
         print('Writing metadata')
         lines = ["Metadata-Version: 2.1", "Name: " + self.distribution,
                  "Version: " + self.version]
+        license = self.artifact_info.index_json.get("license", None)
+        if license:
+            lines.append("License: " + license)
         content = "\n".join(lines) + "\n"
         arcname = f"{self.distribution}-{self.version}.dist-info/METADATA"
+        self._writestr_and_record(arcname, content)
+
+    def write_license_file(self):
+        license_file = os.path.join(self.basedir, 'info', 'LICENSE.txt')
+        if not os.path.isfile(license_file):
+            return
+        print("Writing license file")
+        with open(license_file, 'rb') as f:
+            content = f.read()
+        arcname = f"{self.distribution}-{self.version}.dist-info/LICENSE"
         self._writestr_and_record(arcname, content)
 
     def write_wheel_metadata(self):
