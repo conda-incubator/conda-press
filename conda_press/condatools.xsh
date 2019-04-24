@@ -161,7 +161,7 @@ def re_site_packages_file_unix():
 @lazyobject
 def re_site_packages_file_win():
     return re.compile(r'Lib/site-packages/(.*)')
-    
+
 
 def is_shared_lib(fname):
     _, ext = os.path.splitext(fname)
@@ -259,9 +259,11 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
     local_fn = os.path.join(CACHE_DIR, pkg_record.fn)
     if os.path.isfile(local_fn):
         return local_fn
+    print(f"Downloading {pkg_record.url}")
     resp = requests.get(pkg_record.url)
     with open(local_fn, 'wb') as f:
         f.write(resp.content)
+    print("Download complete")
     return local_fn
 
 

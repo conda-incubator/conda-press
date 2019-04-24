@@ -74,11 +74,6 @@ def test_numpy(pip_install_artifact):
         malib = multiarray[-1]
         proc = subprocess.run(['patchelf', '--print-rpath', malib], check=True, encoding="utf-8", stdout=subprocess.PIPE)
         assert "lib" in proc.stdout
-    # check that we can run f2py
-    if ON_WINDOWS:
-        exc = os.path.join(test_env, 'Scripts', 'f2py.bat')
-    proc = subprocess.run([exc, '-v'], check=True, encoding="utf-8", stdout=subprocess.PIPE)
-    assert proc.stdout.startswith("2")
 
 
 def test_libcblas(pip_install_artifact):

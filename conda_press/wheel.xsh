@@ -20,9 +20,19 @@ declare -a targets
 targets=$(echo "${{current_dir}}"/../lib/python*/site-packages/bin/{basename})
 exec "${{targets[0]}}" "$@"
 """
+DYNAMIC_SP_PY_UNIX_PROXY_SCRIPT = """#!/bin/bash
+current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
+declare -a targets
+targets=$(echo "${{current_dir}}"/../lib/python*/site-packages/bin/{basename})
+exec "${{current_dir}}/python" "${{targets[0]}}" "$@"
+"""
 KNOWN_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
 exec "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
+"""
+KNOWN_SP_PY_UNIX_PROXY_SCRIPT = """#!/bin/bash
+current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
+exec "${{current_dir}}/python{pymajor}.{pyminor}" "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
 """
 WIN_PROXY_SCRIPT = """@echo off
 call "%~dp0\\\\..\\\\Lib\\\\site-packages\\\\{path_to_exe}\\\\{basename}" %*
@@ -364,10 +374,19 @@ class Wheel:
         # choose the template to fill based on whether we have Python's major/minor
         # version numbers, or if we have to find the site-packages directory at
         # run time.
+        with open(absname, 'rb') as f:
+            shebang = f.readline(12).strip()
+        is_py_script = (shebang == b"#!python")
         m = re_python_ver.match(self.artifact_info.python_tag)
-        if m is None:
+        if m is None and is_py_script:
+            pymajor = pyminor = None
+            proxy_script = DYNAMIC_SP_PY_UNIX_PROXY_SCRIPT
+        elif m is None and not is_py_script:
             pymajor = pyminor = None
             proxy_script = DYNAMIC_SP_UNIX_PROXY_SCRIPT
+        elif m is not None and is_py_script:
+            pymajor, pyminor = m.groups()
+            proxy_script = KNOWN_SP_PY_UNIX_PROXY_SCRIPT
         else:
             pymajor, pyminor = m.groups()
             proxy_script = KNOWN_SP_UNIX_PROXY_SCRIPT
@@ -392,7 +411,7 @@ class Wheel:
         self.scripts.extend(new_scripts)
 
     def write_win_script_proxy(self, proxyname, basename, path_to_exe="Scripts"):
-        # Windows does not need to choose the template to fill based on whether we have 
+        # Windows does not need to choose the template to fill based on whether we have
         # Python's major/minor version numbers.
         proxy_script = WIN_PROXY_SCRIPT
         src = proxy_script.format(basename=basename, path_to_exe=path_to_exe)
@@ -430,7 +449,7 @@ class Wheel:
             if proxyname not in new_scripts_map or WIN_EXE_WEIGHTS[ext] > WIN_EXE_WEIGHTS[new_scripts_map[proxyname][2]]:
                 path_to_exe = os.path.dirname(fsname).replace("/", "\\\\")
                 new_scripts_map[proxyname] = (arcname, basename, ext, path_to_exe)
-        # write proxy files 
+        # write proxy files
         new_scripts = []
         for proxyname, (arcname, basename, _, path_to_exe) in new_scripts_map.items():
             proxyname = self.write_win_script_proxy(proxyname, basename, path_to_exe)
@@ -443,7 +462,7 @@ class Wheel:
                 print("munging path in " + fsname)
                 with open(absname, 'r') as f:
                     fsfile = f.read()
-                fsfile = fsfile.replace(r'@SET "PYTHON_EXE=%~dp0\..\python.exe"', 
+                fsfile = fsfile.replace(r'@SET "PYTHON_EXE=%~dp0\..\python.exe"',
                                         r'@SET "PYTHON_EXE=%~dp0\..\..\..\Scripts\python.exe"')
                 with open(absname, 'w') as f:
                     f.write(fsfile)
