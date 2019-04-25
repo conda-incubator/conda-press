@@ -274,6 +274,25 @@ class Wheel:
                 ver, _, build = ver_build.partition(" ")
                 line = f"Requires-Dist: {name} {ver}"
                 lines.append(line)
+        # add about data
+        if info is not None and info.about_json is not None:
+            # add summary
+            if "summary" in info.about_json:
+                summary = info.about_json["summary"].replace("\n", " ").replace("\\n", " ")
+                lines.append("Summary: " + summary)
+            # add home page
+            if "home" in info.about_json:
+                lines.append("Home-page: " + info.about_json["home"])
+            # add other project URLs
+            if "doc_url" in info.about_json:
+                lines.append("Project-URL: Documentation, " + info.about_json["doc_url"])
+            if "dev_url" in info.about_json:
+                lines.append("Project-URL: Development, " + info.about_json["dev_url"])
+            # add description
+            if "description" in info.about_json:
+                desc = info.about_json["description"].replace("\\n", "\n")
+                lines.append("")  # add a blank line
+                lines.extend(desc.splitlines())
         # write it out!
         content = "\n".join(lines) + "\n"
         arcname = f"{self.distribution}-{self.version}.dist-info/METADATA"

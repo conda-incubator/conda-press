@@ -344,6 +344,7 @@ class ArtifactInfo:
         self.index_json = None
         self.link_json = None
         self.recipe_json = None
+        self.about_json = None
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
@@ -381,6 +382,13 @@ class ArtifactInfo:
                 self.recipe_json = json.load(f)
         else:
             self.recipe_json = None
+        # load about.json
+        abtfile = os.path.join(value, 'info', 'about.json')
+        if os.path.isfile(abtfile):
+            with open(abtfile, 'r') as f:
+                self.about_json = json.load(f)
+        else:
+            self.about_json = None
         # load meta.yaml
         metafile = os.path.join(value, 'info', 'recipe', 'meta.yaml.rendered')
         if not os.path.exists(metafile):
