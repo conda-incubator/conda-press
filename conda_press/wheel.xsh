@@ -113,6 +113,22 @@ def _normalize_path_mappings(value, basedir, arcbase='.'):
     return value
 
 
+def normalize_version(version):
+    """Normalizes a version string from conda to PEP-440 style
+    """
+    parts = []
+    for ver in version.split(","):
+        ver = ver.strip()
+        if not ver:
+            continue
+        if ver[0].isdigit():
+            if ver[-1] == "*":
+                ver = "==" + ver
+            else:
+                ver = "~=" + ver
+        parts.append(ver)
+    return ",".join(parts)
+
 class Wheel:
     """A wheel representation that knows how to write itself out."""
 
@@ -272,6 +288,7 @@ class Wheel:
             for name, ver_build in info.run_requirements.items():
                 name = dist_escape(name)
                 ver, _, build = ver_build.partition(" ")
+                ver = normalize_version(ver)
                 line = f"Requires-Dist: {name} {ver}"
                 lines.append(line)
         # add about data
