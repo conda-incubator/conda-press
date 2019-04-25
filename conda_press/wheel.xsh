@@ -46,9 +46,20 @@ WIN_EXE_WEIGHTS = defaultdict(int, {
     ".exe": 4,
 })
 
+
 @lazyobject
 def re_python_ver():
     return re.compile(r'^[cp]y(\d)(\d)$')
+
+
+@lazyobject
+def re_dist_escape():
+    return re.compile("[^\w\d.]+", flags=re.UNICODE)
+
+
+def dist_escape(distribution):
+    """Safely escapes a distribution string"""
+    return re_dist_escape.sub("_", distribution)
 
 
 def urlsafe_b64encode_nopad(data):
@@ -142,7 +153,7 @@ class Wheel:
             If an entry is a filesystem path, it will be converted to the correct
             tuple. The filesystem path will be relative to the basedir.
         """
-        self.distribution = distribution
+        self.distribution = dist_escape(distribution)
         self.version = version
         self.build_tag = build_tag
         self.python_tag = python_tag
@@ -167,7 +178,7 @@ class Wheel:
 
     @property
     def filename(self):
-        parts = [self.distribution.replace("-", "_"), self.version]
+        parts = [self.distribution, self.version]
         if self.build_tag is not None and not self.noarch_python:
             parts.append(self.build_tag)
         parts.extend([self.python_tag, self.abi_tag, self.platform_tag])
@@ -215,7 +226,15 @@ class Wheel:
     def files(self):
         self._files = None
 
-    def write(self):
+    def write(self, include_requirements=True):
+        """Writes out the wheel file to disk.
+
+        Parameters
+        ----------
+        include_requirements : bool, optional
+            Whether or not to include the requirements as part of the wheel metadata.
+            Normally, this should be True.
+        """
         with ZipFile(self.filename, 'w', compression=ZIP_DEFLATED) as zf:
             self.zf = zf
             self.write_from_filesystem('scripts')
@@ -223,7 +242,7 @@ class Wheel:
             self.write_from_filesystem('files')
             self.write_entry_points()
             self.write_top_level()
-            self.write_metadata()
+            self.write_metadata(include_requirements=include_requirements)
             self.write_license_file()
             self.write_wheel_metadata()
             self.write_record()  # This *has* to be the last write
@@ -239,13 +258,23 @@ class Wheel:
         record = (arcname, record_hash(data), len(data))
         self._records.append(record)
 
-    def write_metadata(self):
+    def write_metadata(self, include_requirements=True):
         print('Writing metadata')
         lines = ["Metadata-Version: 2.1", "Name: " + self.distribution,
                  "Version: " + self.version]
-        license = self.artifact_info.index_json.get("license", None)
+        info = self.artifact_info
+        # add license
+        license = info.index_json.get("license", None)
         if license:
             lines.append("License: " + license)
+        # add requirements
+        if include_requirements and info is not None:
+            for name, ver_build in info.run_requirements.items():
+                name = dist_escape(name)
+                ver, _, build = ver_build.partition(" ")
+                line = f"Requires-Dist: {name} {ver}"
+                lines.append(line)
+        # write it out!
         content = "\n".join(lines) + "\n"
         arcname = f"{self.distribution}-{self.version}.dist-info/METADATA"
         self._writestr_and_record(arcname, content)

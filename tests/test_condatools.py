@@ -26,7 +26,7 @@ def isexecutable(filepath):
 
 def test_no_symlinks(pip_install_artifact):
     # pip cannot unpack real symlinks, so insure it isn't
-    wheel, test_env, sp = pip_install_artifact("re2=2016.11.01")
+    wheel, test_env, sp = pip_install_artifact("re2=2016.11.01", include_requirements=False)
     if ON_WINDOWS:
         should_be_symlink = os.path.join(sp, 'Library', 'bin', 're2' + SO_EXT)
     else:
@@ -39,7 +39,7 @@ def test_no_symlinks(pip_install_artifact):
 
 @skip_if_not_on_linux
 def test_scripts_to_bin(pip_install_artifact):
-    wheel, test_env, sp = pip_install_artifact("patchelf=0.9")
+    wheel, test_env, sp = pip_install_artifact("patchelf=0.9", include_requirements=False)
     exc = os.path.join(test_env, 'bin', 'patchelf')
     assert os.path.isfile(exc)
     assert isexecutable(exc)
@@ -48,7 +48,7 @@ def test_scripts_to_bin(pip_install_artifact):
 
 
 def test_entrypoints(pip_install_artifact):
-    wheel, test_env, sp = pip_install_artifact("noarch/conda-smithy=3.3.2")
+    wheel, test_env, sp = pip_install_artifact("noarch/conda-smithy=3.3.2", include_requirements=False)
     if ON_WINDOWS:
         exc = os.path.join(test_env, 'Scripts', 'conda-smithy.exe')
     else:
@@ -58,7 +58,7 @@ def test_entrypoints(pip_install_artifact):
 
 
 def test_numpy(pip_install_artifact):
-    wheel, test_env, sp = pip_install_artifact("numpy=1.14.6")
+    wheel, test_env, sp = pip_install_artifact("numpy=1.14.6", include_requirements=False)
     if ON_WINDOWS:
         exc = os.path.join(sp, 'Scripts', 'f2py.py')
     else:
@@ -79,7 +79,7 @@ def test_numpy(pip_install_artifact):
 
 
 def test_libcblas(pip_install_artifact):
-    wheel, test_env, sp = pip_install_artifact("libcblas=3.8.0=4_mkl")
+    wheel, test_env, sp = pip_install_artifact("libcblas=3.8.0=4_mkl", include_requirements=False)
     if SYSTEM == "Linux":
         fname = os.path.join(sp, 'lib', 'libcblas.so.3')
     elif SYSTEM == "Darwin":
@@ -92,7 +92,7 @@ def test_libcblas(pip_install_artifact):
 
 
 def test_nasm_executes(pip_install_artifact):
-    wheel, test_env, sp = pip_install_artifact("nasm=2.13.02")
+    wheel, test_env, sp = pip_install_artifact("nasm=2.13.02", include_requirements=False)
     if ON_WINDOWS:
         exc = os.path.join(test_env, 'Scripts', 'nasm.bat')
     else:

@@ -74,10 +74,10 @@ def download_artifact(artifact_ref):
 def pip_install_artifact(request):
     wheel = None
     test_env = tempfile.mkdtemp(prefix="test-env")
-    def create_wheel_and_install(artifact_ref):
+    def create_wheel_and_install(artifact_ref, include_requirements=True):
         nonlocal wheel
         artifact_path = download_artifact(artifact_ref)
-        wheel = artifact_to_wheel(artifact_path)
+        wheel = artifact_to_wheel(artifact_path, include_requirements=include_requirements)
         subprocess.run(['virtualenv', test_env], check=True)
         if sys.platform.startswith('win'):
             site_packages = os.path.join(test_env, 'Lib', 'site-packages')
@@ -106,12 +106,12 @@ def pip_install_artifact(request):
 def pip_install_artifact_tree(request):
     wheels = {}
     test_env = tempfile.mkdtemp(prefix="test-env")
-    def create_wheels_and_install(artifact_ref):
+    def create_wheels_and_install(artifact_ref, include_requirements=True):
         nonlocal wheels
         subdir = PLATFORM_TO_SUBDIR[sys.platform]
-        artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir)
+        artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir, include_requirements=include_requirements)
         subprocess.run(['virtualenv', test_env], check=True)
-        wheel_filenames = " ".join([w.filename for w in wheels.values()])
+        wheel_filenames = " ".join(reversed([w.filename for w in wheels.values()]))
         if sys.platform.startswith('win'):
             site_packages = os.path.join(test_env, 'Lib', 'site-packages')
             code = f"{test_env}\\Scripts\\activate & pip install {wheel_filenames}"

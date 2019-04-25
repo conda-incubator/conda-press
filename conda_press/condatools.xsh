@@ -573,7 +573,7 @@ class ArtifactInfo:
                 dep.clean()
 
 
-def artifact_to_wheel(path):
+def artifact_to_wheel(path, include_requirements=True):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
@@ -601,28 +601,29 @@ def artifact_to_wheel(path):
     wheel.rewrite_rpaths()
     wheel.rewrite_scripts_linking()
     wheel.entry_points = info.entry_points
-    wheel.write()
+    wheel.write(include_requirements=include_requirements)
     return wheel
 
 
-def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None):
+def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
+                          include_requirements=True):
     """Converts a package ref spec to a wheel."""
     path = download_artifact(artifact_ref, channels=channels, subdir=subdir)
-    wheel = artifact_to_wheel(path)
+    wheel = artifact_to_wheel(path, include_requirements=include_requirements)
     return wheel
 
 
-def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None, seen=None):
+def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None, seen=None, include_requirements=True):
     """Converts all artifact dependncies to wheels"""
     seen = {} if seen is None else seen
     if artifact_ref in seen:
         wheel = seen[artifact_ref]
     else:
-        wheel = artifact_ref_to_wheel(artifact_ref, channels=channels, subdir=subdir)
+        wheel = artifact_ref_to_wheel(artifact_ref, channels=channels, subdir=subdir, include_requirements=include_requirements)
         seen[artifact_ref] = wheel
     # now loop through deps
     info = wheel.artifact_info
     for dep, ver_build in info.run_requirements.items():
         dep_ref = ref_name(dep, ver_build=ver_build)
-        artifact_ref_dependency_tree_to_wheels(dep_ref, channels=channels, subdir=subdir, seen=seen)
+        artifact_ref_dependency_tree_to_wheels(dep_ref, channels=channels, subdir=subdir, seen=seen, include_requirements=include_requirements)
     return seen
