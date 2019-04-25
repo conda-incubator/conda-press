@@ -54,7 +54,7 @@ def re_python_ver():
 
 @lazyobject
 def re_dist_escape():
-    return re.compile("[^\w\d.]+", flags=re.UNICODE)
+    return re.compile(r"[^\w\d.]+", flags=re.UNICODE)
 
 
 def dist_escape(distribution):

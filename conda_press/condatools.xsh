@@ -571,11 +571,15 @@ class ArtifactInfo:
             if target is None:
                 raise RuntimeError(f"Could not find link target of {absname}")
             print(f"Replacing {absname} with {target}")
-            try:
-                shutil.copy2(target, absname, follow_symlinks=False)
-            except shutil.SameFileError:
+            if os.path.isdir(absname):
                 os.remove(absname)
-                shutil.copy2(target, absname, follow_symlinks=False)
+                shutil.copytree(target, absname)
+            else:
+                try:
+                    shutil.copy2(target, absname, follow_symlinks=False)
+                except shutil.SameFileError:
+                    os.remove(absname)
+                    shutil.copy2(target, absname, follow_symlinks=False)
             # clean up after the copy
             for key, dep in deps_cache.items():
                 dep.clean()
