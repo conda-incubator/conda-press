@@ -18,26 +18,39 @@ DYNAMIC_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
 declare -a targets
 targets=$(echo "${{current_dir}}"/../lib/python*/site-packages/bin/{basename})
+#!PROXY_ENVVARS!#
 exec "${{targets[0]}}" "$@"
 """
 DYNAMIC_SP_PY_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
 declare -a targets
 targets=$(echo "${{current_dir}}"/../lib/python*/site-packages/bin/{basename})
+#!PROXY_ENVVARS!#
 exec "${{current_dir}}/python" "${{targets[0]}}" "$@"
 """
 KNOWN_SP_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
+#!PROXY_ENVVARS!#
 exec "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
 """
 KNOWN_SP_PY_UNIX_PROXY_SCRIPT = """#!/bin/bash
 current_dir="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" >/dev/null 2>&1 && pwd )"
+#!PROXY_ENVVARS!#
 exec "${{current_dir}}/python{pymajor}.{pyminor}" "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages/bin/{basename}" "$@"
 """
 WIN_PROXY_SCRIPT = """@echo off
+#!PROXY_ENVVARS!#
 call "%~dp0\\\\..\\\\Lib\\\\site-packages\\\\{path_to_exe}\\\\{basename}" %*
 exit /B %ERRORLEVEL%
 """
+
+# Maps packages to environment variables-value dict to set in the proxy
+# scripts.  These can use the following format names expansions (on Unix):
+#  {current_dir} -> ${{current_dir}}
+#  {sitepackages} -> ${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages
+PROXY_ENVVARS = defaultdict(dict, {
+    'python': {"PYTHONPATH": "{sitepackages}"},
+})
 
 WIN_EXE_WEIGHTS = defaultdict(int, {
     ".com": 1,
@@ -128,6 +141,8 @@ def normalize_version(version):
                 ver = "~=" + ver
         parts.append(ver)
     return ",".join(parts)
+
+
 
 class Wheel:
     """A wheel representation that knows how to write itself out."""
@@ -466,9 +481,28 @@ class Wheel:
         elif m is not None and is_py_script:
             pymajor, pyminor = m.groups()
             proxy_script = KNOWN_SP_PY_UNIX_PROXY_SCRIPT
+            env_prefix = ""
         else:
             pymajor, pyminor = m.groups()
             proxy_script = KNOWN_SP_UNIX_PROXY_SCRIPT
+            env_prefix = ""
+            sitepackages = ""
+        # format environent variables
+        proxy_envvars = PROXY_ENVVARS.get(self.distribution)
+        if proxy_envvars:
+            env = ""
+            if m is None:
+                env += 'sitepackages="${{targets[0]}}/../.."\n'
+                sitepackages = "${{sitepackages}}"
+            else:
+                sitepackages = "${{current_dir}}/../lib/python{pymajor}.{pyminor}/site-packages"
+            for name, val in proxy_envvars.items():
+                env += 'export ' + name + '="' + val.format(sitepackages=sitepackages,
+                                                            current_dir="${{current_dir}}")
+                env += '"\n'
+        else:
+            env = ""
+        proxy_script = proxy_script.replace("#!PROXY_ENVVARS!#\n", env)
         src = proxy_script.format(basename=basename, pymajor=pymajor, pyminor=pyminor)
         with open(proxyname, 'w') as f:
             f.write(src)
