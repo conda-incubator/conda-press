@@ -525,8 +525,17 @@ class Wheel:
 
     def write_win_script_proxy(self, proxyname, basename, path_to_exe="Scripts"):
         # Windows does not need to choose the template to fill based on whether we have
-        # Python's major/minor version numbers.
+        # Python's major/minor version numbers. Instead, can just format environment.
+        proxy_envvars = PROXY_ENVVARS.get(self.distribution)
+        env = ""
+        if proxy_envvars:
+            for name, val in proxy_envvars.items():
+                val = val.replace("/", "\\\\")  # swap unix paths for win paths seps
+                env += 'set ' + name + '=' + val.format(sitepackages="%~dp0\\\\..\\\\Lib\\\\site-packages",
+                                                        current_dir="%~dp0\\\\..")
+                env += '\n'
         proxy_script = WIN_PROXY_SCRIPT
+        proxy_script = proxy_script.replace("#!PROXY_ENVVARS!#\n", env)
         src = proxy_script.format(basename=basename, path_to_exe=path_to_exe)
         with open(proxyname, 'w', newline="\r\n") as f:
             f.write(src)

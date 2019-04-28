@@ -1,5 +1,6 @@
 import os
 import sys
+import ast
 import stat
 import glob
 import subprocess
@@ -114,3 +115,24 @@ def test_xz_tree(pip_install_artifact_tree):
     assert isexecutable(exc)
     proc = subprocess.run([exc, "--version"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
     assert proc.stdout.strip().startswith("xz (XZ Utils) 5.2.4")
+
+
+def test_python(pip_install_artifact_tree):
+    # this tests that PYTHONPATH is getting set properly
+    spec = "python={0}.{1}.{2}".format(*sys.version_info[:3])
+    wheels, test_env, sp = pip_install_artifact_tree(spec)
+    if ON_WINDOWS:
+        exc = os.path.join(test_env, 'Scripts', 'python.bat')
+    else:
+        exc = os.path.join(test_env, 'bin', 'python')
+    assert os.path.isfile(exc)
+    assert isexecutable(exc)
+    proc = subprocess.run([exc, "--version"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
+    assert proc.stdout.strip().startswith("Python {0}.{1}.{2}".format(*sys.version_info[:3]))
+    # now check that site-packages is in sys.path
+    proc = subprocess.run([exc, "-c", "import sys; print(sys.path)"], check=True, encoding="utf-8", stdout=subprocess.PIPE)
+    out = proc.stdout.strip()
+    sys_path = ast.literal_eval(out)
+    norm_sys_path = [os.path.normpath(p) for p in sys_path]
+    norm_sp = os.path.normpath(sp)
+    assert norm_sp in norm_sys_path
