@@ -34,7 +34,7 @@ issues / workflows:
 5. By pip installing against this channel, a user will effectively swap out
    their whole environment for the conda-version.
 
-**Issue 2:** Some people want a package indes built on newer ABIs than `manylinux<N>`
+**Issue 2:** Some people want a package index built on newer ABIs than `manylinux<N>`
 
 **Issue 3:** Conda has a lot of packages that are not available as wheels otherwise.
 Conda-press allows these packages to easily become wheels.
