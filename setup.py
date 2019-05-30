@@ -32,6 +32,7 @@ def main():
         package_dir={'conda_press': 'conda_press'},
         package_data={'conda_press': ['*.xsh']},
         scripts=scripts,
+        install_requires=['xonsh', 'lazyasd', 'ruamel.yaml', 'tqdm'],
         zip_safe=False,
         )
     setup(**skw)
