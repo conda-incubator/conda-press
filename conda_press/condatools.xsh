@@ -254,6 +254,7 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
     if pkg_records:
         pkg_record = pkg_records[-1]
     else:
+        return None
         raise RuntimeError(f"could not find {artifact_ref} on {channels}")
     os.makedirs(CACHE_DIR, exist_ok=True)
     local_fn = os.path.join(CACHE_DIR, pkg_record.fn)
@@ -285,6 +286,9 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
             dep = deps_cache[dep_ref]
         else:
             depfile = download_artifact(dep_ref, channels=channels, subdir=info.subdir)
+            if depfile is None:
+                print(f"skipping {dep_ref}")
+                continue
             dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False)
             deps_cache[dep_ref] = dep
         tgtdep = os.path.join(dep.artifactdir, relative_source)
@@ -293,7 +297,7 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
             tgtfile = tgtdep
         else:
             tgtfile = find_link_target(tgtdep, info=dep, channels=channels, deps_cache=deps_cache, relative_source=relative_source)
-        if os.path.islink(tgtfile):
+        if tgtfile and os.path.islink(tgtfile):
             # recurse even farther down, if what we got is also a link
             tgtfile = find_link_target(tgtfile, info=dep, channels=channels, deps_cache=deps_cache, relative_source=relative_source)
         if tgtfile is not None:
@@ -314,6 +318,9 @@ def find_link_target(source, info=None, channels=None, deps_cache=None, relative
         if relative_source is None:
             relative_source = os.path.relpath(source, info.artifactdir)
         tgtfile = _find_file_in_artifact(relative_source, info=info, channels=channels, deps_cache=dc)
+    if tgtfile is None:
+        print(f"{relative_source} is None")
+        return None
     if not os.path.exists(tgtfile):
         # not in this artifact, need to do dependency search
         tgtrel = os.path.relpath(tgtfile, info.artifactdir)
@@ -590,7 +597,9 @@ def artifact_to_wheel(path, include_requirements=True):
     the temporary artifact directory before returning.
     """
     # unzip the artifact
-    info = ArtifactInfo.from_tarball(path)
+    if path is None:
+        return
+    info = path if isinstance(path, ArtifactInfo) else ArtifactInfo.from_tarball(path)
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
         if checker(info=info):
@@ -618,24 +627,36 @@ def artifact_to_wheel(path, include_requirements=True):
 
 
 def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
-                          include_requirements=True):
+                          include_requirements=True, top=True):
     """Converts a package ref spec to a wheel."""
     path = download_artifact(artifact_ref, channels=channels, subdir=subdir)
-    wheel = artifact_to_wheel(path, include_requirements=include_requirements)
+    if path is None:
+        # happens for cloudpickle>=0.2.1
+        return None
+    info = ArtifactInfo.from_tarball(path)
+    if not top and "python" in info.run_requirements:
+        return None
+    wheel = artifact_to_wheel(info, include_requirements=include_requirements)
     return wheel
 
 
-def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None, seen=None, include_requirements=True):
+def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None,
+                                           seen=None, include_requirements=True,
+                                           top=True):
     """Converts all artifact dependncies to wheels"""
     seen = {} if seen is None else seen
     if artifact_ref in seen:
         wheel = seen[artifact_ref]
     else:
-        wheel = artifact_ref_to_wheel(artifact_ref, channels=channels, subdir=subdir, include_requirements=include_requirements)
+        wheel = artifact_ref_to_wheel(artifact_ref, channels=channels, subdir=subdir, include_requirements=include_requirements, top=top)
         seen[artifact_ref] = wheel
+        if wheel is None:
+            return seen
     # now loop through deps
     info = wheel.artifact_info
     for dep, ver_build in info.run_requirements.items():
+        if dep == "python":
+            continue
         dep_ref = ref_name(dep, ver_build=ver_build)
-        artifact_ref_dependency_tree_to_wheels(dep_ref, channels=channels, subdir=subdir, seen=seen, include_requirements=include_requirements)
+        artifact_ref_dependency_tree_to_wheels(dep_ref, channels=channels, subdir=subdir, seen=seen, include_requirements=include_requirements, top=False)
     return seen
