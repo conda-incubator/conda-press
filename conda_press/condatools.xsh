@@ -9,6 +9,8 @@ import tarfile
 import tempfile
 
 from lazyasd import lazyobject
+from xonsh.platform import ON_LINUX
+from xonsh.tools import print_color
 from xonsh.lib.os import rmtree, indir
 
 from ruamel.yaml import YAML
@@ -176,6 +178,12 @@ def is_shared_lib(fname):
     return rtn
 
 
+def is_elf(fname):
+    """Whether or not a file is an ELF binary file."""
+    with ${...}.swap(RAISE_SUBPROC_ERROR=False):
+        return bool(!(patchelf @(fname) e>o))
+
+
 def _remap_site_packages(wheel, info):
     new_files = []
     moved_so = []
@@ -278,7 +286,8 @@ def ref_name(name, ver_build=None):
     return rtn
 
 
-def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache=None):
+def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache=None,
+                           strip_symbols=True):
     tgtfile = None
     for name, ver_build in info.run_requirements.items():
         dep_ref = ref_name(name, ver_build=ver_build)
@@ -289,17 +298,23 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
             if depfile is None:
                 print(f"skipping {dep_ref}")
                 continue
-            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False)
+            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False, strip_symbols=strip_symbols)
             deps_cache[dep_ref] = dep
         tgtdep = os.path.join(dep.artifactdir, relative_source)
         print(f"Searching {dep.artifactdir} for link target of {relative_source} -> {tgtdep}")
         if os.path.isfile(tgtdep) or os.path.islink(tgtdep):
             tgtfile = tgtdep
         else:
-            tgtfile = find_link_target(tgtdep, info=dep, channels=channels, deps_cache=deps_cache, relative_source=relative_source)
+            tgtfile = find_link_target(tgtdep, info=dep, channels=channels,
+                                       deps_cache=deps_cache,
+                                       relative_source=relative_source,
+                                       strip_symbols=strip_symbols)
         if tgtfile and os.path.islink(tgtfile):
             # recurse even farther down, if what we got is also a link
-            tgtfile = find_link_target(tgtfile, info=dep, channels=channels, deps_cache=deps_cache, relative_source=relative_source)
+            tgtfile = find_link_target(tgtfile, info=dep, channels=channels,
+                                       deps_cache=deps_cache,
+                                       relative_source=relative_source,
+                                       strip_symbols=strip_symbols)
         if tgtfile is not None:
             break
     else:
@@ -307,7 +322,8 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
     return tgtfile
 
 
-def find_link_target(source, info=None, channels=None, deps_cache=None, relative_source=None):
+def find_link_target(source, info=None, channels=None, deps_cache=None,
+                     relative_source=None, strip_symbols=True):
     dc = {} if deps_cache is None else deps_cache
     if os.path.islink(source):
         target = os.readlink(source)
@@ -317,21 +333,24 @@ def find_link_target(source, info=None, channels=None, deps_cache=None, relative
         # this dep doesn't have the target, so search recursively
         if relative_source is None:
             relative_source = os.path.relpath(source, info.artifactdir)
-        tgtfile = _find_file_in_artifact(relative_source, info=info, channels=channels, deps_cache=dc)
+        tgtfile = _find_file_in_artifact(relative_source, info=info, channels=channels, deps_cache=dc,
+                                         strip_symbols=strip_symbols)
     if tgtfile is None:
         print(f"{relative_source} is None")
         return None
     if not os.path.exists(tgtfile):
         # not in this artifact, need to do dependency search
         tgtrel = os.path.relpath(tgtfile, info.artifactdir)
-        tgtfile = _find_file_in_artifact(tgtrel, info=info, channels=channels, deps_cache=dc)
+        tgtfile = _find_file_in_artifact(tgtrel, info=info, channels=channels,
+                                         deps_cache=dc, strip_symbols=strip_symbols)
         if deps_cache is None:
             # clean up, if we are the last call
             for key, dep in dc.items():
                 dep.clean()
     elif os.path.islink(tgtfile):
         # target is another symlink! need to go further
-        rtn = find_link_target(tgtfile, info=info, channels=channels, deps_cache=dc)
+        rtn = find_link_target(tgtfile, info=info, channels=channels, deps_cache=dc,
+                               strip_symbols=strip_symbols)
     else:
         rtn = tgtfile
     return tgtfile
@@ -546,7 +565,7 @@ class ArtifactInfo:
         return self.index_json["subdir"]
 
     @classmethod
-    def from_tarball(cls, path, replace_symlinks=True):
+    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True):
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -561,11 +580,25 @@ class ArtifactInfo:
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
         info = cls(tmpdir)
+        if strip_symbols:
+            info.strip_symbols()
         if replace_symlinks:
-            info.replace_symlinks()
+            info.replace_symlinks(strip_symbols=strip_symbols)
         return info
 
-    def replace_symlinks(self):
+    def strip_symbols(self):
+        """Strips symbols out of binary files"""
+        if not ON_LINUX:
+            print_color("{RED}Skipping symbol stripping, not on linux!{NO_COLOR}")
+        for f in self.files:
+            absname = os.path.join(self.artifactdir, f)
+            if not is_elf(absname):
+                continue
+            print_color("striping symbols from {CYAN}" + absname + "{NO_COLOR}")
+            with ${...}.swap(RAISE_SUBPROC_ERROR=True):
+                ![strip --strip-all --preserve-dates --enable-deterministic-archives @(absname)]
+
+    def replace_symlinks(self, strip_symbols=True):
         # this is needed because of https://github.com/pypa/pip/issues/5919
         # this has to walk the package deps in some cases.
         for f in self.files:
@@ -574,7 +607,7 @@ class ArtifactInfo:
                 # file is not a symlink, we can skip
                 continue
             deps_cache = {}
-            target = find_link_target(absname, info=self, deps_cache=deps_cache)
+            target = find_link_target(absname, info=self, deps_cache=deps_cache, strip_symbols=strip_symbols)
             if target is None:
                 raise RuntimeError(f"Could not find link target of {absname}")
             print(f"Replacing {absname} with {target}")
@@ -592,14 +625,15 @@ class ArtifactInfo:
                 dep.clean()
 
 
-def artifact_to_wheel(path, include_requirements=True):
+def artifact_to_wheel(path, include_requirements=True, strip_symbols=True):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
     # unzip the artifact
     if path is None:
         return
-    info = path if isinstance(path, ArtifactInfo) else ArtifactInfo.from_tarball(path)
+    info = path if isinstance(path, ArtifactInfo) \
+           else ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols)
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
         if checker(info=info):
@@ -627,36 +661,60 @@ def artifact_to_wheel(path, include_requirements=True):
 
 
 def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
-                          include_requirements=True, top=True):
+                          include_requirements=True, strip_symbols=True,
+                          skip_python=False, _top=True):
     """Converts a package ref spec to a wheel."""
     path = download_artifact(artifact_ref, channels=channels, subdir=subdir)
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
-    info = ArtifactInfo.from_tarball(path)
-    if not top and "python" in info.run_requirements:
+    info = ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols)
+    if skip_python and not _top and "python" in info.run_requirements:
         return None
-    wheel = artifact_to_wheel(info, include_requirements=include_requirements)
+    wheel = artifact_to_wheel(
+        info,
+        include_requirements=include_requirements,
+        strip_symbols=strip_symbols,
+    )
     return wheel
 
 
 def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None,
                                            seen=None, include_requirements=True,
-                                           top=True):
-    """Converts all artifact dependncies to wheels"""
+                                           skip_python=False,
+                                           strip_symbols=True,
+                                           _top=True):
+    """Converts all artifact dependencies to wheels"""
     seen = {} if seen is None else seen
     if artifact_ref in seen:
         wheel = seen[artifact_ref]
     else:
-        wheel = artifact_ref_to_wheel(artifact_ref, channels=channels, subdir=subdir, include_requirements=include_requirements, top=top)
+        wheel = artifact_ref_to_wheel(
+            artifact_ref,
+            channels=channels,
+            subdir=subdir,
+            skip_python=skip_python,
+            include_requirements=include_requirements,
+            strip_symbols=strip_symbols,
+            _top=_top
+        )
         seen[artifact_ref] = wheel
         if wheel is None:
             return seen
     # now loop through deps
     info = wheel.artifact_info
     for dep, ver_build in info.run_requirements.items():
-        if dep == "python":
+        if skip_python and dep == "python":
             continue
         dep_ref = ref_name(dep, ver_build=ver_build)
-        artifact_ref_dependency_tree_to_wheels(dep_ref, channels=channels, subdir=subdir, seen=seen, include_requirements=include_requirements, top=False)
+        artifact_ref_dependency_tree_to_wheels(
+            dep_ref,
+            channels=channels,
+            subdir=subdir,
+            seen=seen,
+            skip_python=skip_python,
+            include_requirements=include_requirements,
+            strip_symbols=strip_symbols,
+            _top=False,
+        )
     return seen
