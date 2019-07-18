@@ -207,6 +207,10 @@ class Wheel:
         if self.artifact_info is not None:
             self.artifact_info.clean()
 
+    @classmethod
+    def from_file(cls, filename):
+        """Creates a wheel object from an existing wheel."""
+
     @property
     def filename(self):
         parts = [self.distribution, self.version]
@@ -592,3 +596,8 @@ class Wheel:
         self.files.extend(new_files)
         self.scripts.clear()
         self.scripts.extend(new_scripts)
+
+
+def merge(files):
+    """merges wheels together"""
+    pass
