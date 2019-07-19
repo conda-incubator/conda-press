@@ -600,4 +600,14 @@ class Wheel:
 
 def merge(files):
     """merges wheels together"""
-    pass
+    print(files)
+    whl = Wheel('package', version="1.0")
+    for ref, w in files.items():
+        if w is None:
+            continue
+        whl._records += w._records
+        whl._scripts += w._scripts
+        whl._includes += w._includes
+        whl._files += w._files
+    whl.write()
+

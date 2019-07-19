@@ -1,7 +1,7 @@
 """CLI entry point for conda-press"""
 from argparse import ArgumentParser
 
-from conda_press.wheel import merge_wheels
+from conda_press.wheel import merge
 from conda_press.condatools import artifact_to_wheel, artifact_ref_dependency_tree_to_wheels, DEFAULT_CHANNELS
 
 
@@ -25,7 +25,7 @@ def main(args=None):
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
     if ns.merge:
-        merge_wheels(ns.files)
+        merge(ns.files)
         return
 
     for fname in ns.files:
@@ -37,7 +37,7 @@ def main(args=None):
                 strip_symbols=ns.strip_symbols,
                 channels=channels)
             if ns.fatten:
-                merge_wheels(seen)
+                merge(seen)
         else:
             print(f'Converting {fname} to wheel')
             artifact_to_wheel(fname, strip_symbols=ns.strip_symbols)
