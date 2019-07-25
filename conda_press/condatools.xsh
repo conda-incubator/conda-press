@@ -565,7 +565,7 @@ class ArtifactInfo:
         return self.index_json["subdir"]
 
     @classmethod
-    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True):
+    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True, skip_python=False):
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -580,6 +580,8 @@ class ArtifactInfo:
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
         info = cls(tmpdir)
+        if skip_python and "python" in info.run_requirements:
+            return info
         if strip_symbols:
             info.strip_symbols()
         if replace_symlinks:
@@ -646,6 +648,7 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True):
                   abi_tag=info.abi_tag, platform_tag=info.platform_tag)
     wheel.artifact_info = info
     wheel.basedir = info.artifactdir
+    wheel.derived_from = "artifact"
     _group_files(wheel, info)
     if info.noarch == "python":
         wheel.noarch_python = True
@@ -668,7 +671,7 @@ def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
-    info = ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols)
+    info = ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols, skip_python=skip_python)
     if skip_python and not _top and "python" in info.run_requirements:
         return None
     wheel = artifact_to_wheel(
@@ -676,6 +679,7 @@ def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
         include_requirements=include_requirements,
         strip_symbols=strip_symbols,
     )
+    wheel._top = _top
     return wheel
 
 

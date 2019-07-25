@@ -1,7 +1,11 @@
 """CLI entry point for conda-press"""
+import os
+import shutil
 from argparse import ArgumentParser
 
-from conda_press.wheel import merge_wheels
+from xonsh.lib.os import rmtree
+
+from conda_press.wheel import Wheel, merge
 from conda_press.condatools import artifact_to_wheel, artifact_ref_dependency_tree_to_wheels, DEFAULT_CHANNELS
 
 
@@ -21,11 +25,16 @@ def main(args=None):
                    help="merges the wheel with all of its dependencies.")
     p.add_argument("--merge", dest="merge", default=False, action="store_true",
                    help="merges a list of wheels into a single wheel")
+    p.add_argument("-o", "--output", dest="output", default=None,
+                   help="Output file name for merge/fatten. If not given, "
+                        "this will be the last wheel listed.")
     ns = p.parse_args(args=args)
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
     if ns.merge:
-        merge_wheels(ns.files)
+        wheels = {f: Wheel.from_file(f) for f in ns.files}
+        output = ns.files[-1] if ns.output is None else ns.output
+        merge(wheels, output=output)
         return
 
     for fname in ns.files:
@@ -37,7 +46,20 @@ def main(args=None):
                 strip_symbols=ns.strip_symbols,
                 channels=channels)
             if ns.fatten:
-                merge_wheels(seen)
+                wheels = {}
+                output = ns.output
+                os.makedirs('tmp-wheels', exist_ok=True)
+                for w in seen.values():
+                    if w is None:
+                        continue
+                    fname = w.filename
+                    if output is None and getattr(w, '_top', False):
+                        output = fname
+                    reloc = os.path.join('tmp-wheels', fname)
+                    shutil.move(fname, reloc)
+                    wheels[reloc] = Wheel.from_file(reloc)
+                merge(wheels, output=output)
+                rmtree('tmp-wheels')
         else:
             print(f'Converting {fname} to wheel')
             artifact_to_wheel(fname, strip_symbols=ns.strip_symbols)
