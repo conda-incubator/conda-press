@@ -648,6 +648,7 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True):
                   abi_tag=info.abi_tag, platform_tag=info.platform_tag)
     wheel.artifact_info = info
     wheel.basedir = info.artifactdir
+    wheel.derived_from = "artifact"
     _group_files(wheel, info)
     if info.noarch == "python":
         wheel.noarch_python = True

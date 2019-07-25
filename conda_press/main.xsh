@@ -21,12 +21,16 @@ def main(args=None):
                    help="merges the wheel with all of its dependencies.")
     p.add_argument("--merge", dest="merge", default=False, action="store_true",
                    help="merges a list of wheels into a single wheel")
+    p.add_argument("-o", "--output", dest="output", default=None,
+                   help="Output file name for merge/fatten. If not given, "
+                        "this will be the last wheel listed.")
     ns = p.parse_args(args=args)
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
     if ns.merge:
         wheels = {f: Wheel.from_file(f) for f in ns.files}
-        merge(wheels)
+        output = ns.files[-1] if ns.output is None else ns.output
+        merge(wheels, output=output)
         return
 
     for fname in ns.files:

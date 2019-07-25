@@ -12,6 +12,7 @@ from collections.abc import Sequence, MutableSequence
 
 from tqdm import tqdm
 from lazyasd import lazyobject
+from xonsh.lib.os import indir
 
 from conda_press import __version__ as VERSION
 
@@ -67,6 +68,18 @@ def re_wheel_filename():
     return re.compile(r'(?P<distribution>[^-]+)[-](?P<version>[^-]+)'
                       r'([-](?P<build_tag>[^-]+))?[-](?P<python_tag>[^-]+)'
                       r'[-](?P<abi_tag>[^-]+)[-](?P<platform_tag>[^-]+)\.whl')
+
+def distinfo_from_filename(filename):
+    """returns a dict of wheel information from a filename"""
+    basename = os.path.basename(filename)
+    m = re_wheel_filename.match(basename)
+    if m is None:
+        raise ValueError(
+            f"{filename} is malformed, needs to match " +
+            "'{distribution}-{version}(-{build tag})?-{python tag}-"
+            "{abi tag}-{platform tag}.whl'"
+        )
+    return m.groupdict()
 
 
 @lazyobject
@@ -153,7 +166,7 @@ def normalize_version(version):
 
 
 def parse_entry_points(wheel_or_file):
-    """Returns a list of entry points from a Wheel or a filename"""
+    """Returns a list of entry points from a Wheel or an entry_points.txt filename"""
     if isinstance(wheel_or_file, Wheel):
         filename = os.path.join(
             wheel_or_file.basedir,
@@ -168,6 +181,30 @@ def parse_entry_points(wheel_or_file):
     config = configparser.ConfigParser()
     config.read(filename)
     return config.get("console_scripts", [])
+
+
+def parse_records(wheel_or_file):
+    """Returns a list of record tuples from a Wheel or a RECORD filename"""
+    if isinstance(wheel_or_file, Wheel):
+        filename = os.path.join(
+            wheel_or_file.basedir,
+            f"{wheel_or_file.distribution}-{wheel_or_file.version}.dist-info",
+            "RECORD"
+        )
+    else:
+        filename = wheel_or_file
+    if not os.path.isfile(filename):
+        print(f"RECORD file {filename!r} does not exist!")
+        return []
+    with open(filename) as f:
+        raw = f.read()
+    records = [line.split(",") for line in raw.splitlines() if line]
+    return records
+
+
+def parse_files(wheel_or_file):
+    """Returns a list of files from a Wheel or a RECORD filename"""
+    return [r[0] for r in parse_records(wheel_or_file)]
 
 
 class Wheel:
@@ -197,6 +234,13 @@ class Wheel:
             Whether the package is a 'noarch: python' conda package.
         basedir : str or None,
             Location on filesystem where real files exist.
+        derived_from : str
+            This is a flag representing where this wheel came from. Valid values
+            are:
+
+            * "none": wheel object created from nothing
+            * "artifact": wheel object created from conda artifact
+            * "wheel": wheel object created from a wheel file.
         scripts : sequence of (filesystem-str, archive-str) tuples or None
             This maps filesystem paths to the scripts/filename.ext in the archive.
             If an entry is a filesystem path, it will be converted to the correct
@@ -218,6 +262,7 @@ class Wheel:
         self.platform_tag = platform_tag
         self.noarch_python = False
         self.basedir = None
+        self.derived_from = "none"
         self.artifact_info = None
         self.entry_points = []
         self.moved_shared_libs = []
@@ -237,18 +282,14 @@ class Wheel:
     def from_file(cls, filename):
         """Creates a wheel object from an existing wheel."""
         basename = os.path.basename(filename)
-        m = re_wheel_filename.match(basename)
-        if m is None:
-            raise ValueError(
-                f"{filename} is malformed, needs to match " +
-                "'{distribution}-{version}(-{build tag})?-{python tag}-"
-                "{abi tag}-{platform tag}.whl'"
-            )
-        whl = cls(**m.groupdict())
+        distinfo = distinfo_from_filename(filename)
+        whl = cls(**distinfo)
         whl.basedir = tempfile.mkdtemp(prefix=basename + "-")
+        whl.derived_from = "wheel"
         with ZipFile(filename) as zf:
             zf.extractall(path=whl.basedir)
         whl.entry_points.extend(parse_entry_points(whl))
+        whl._files.extend([(os.path.join(whl.basedir, x), x) for x in parse_files(whl)])
         return whl
 
     @property
@@ -333,8 +374,18 @@ class Wheel:
         record = (arcname, record_hash(data), len(data))
         self._records.append(record)
 
-    def write_metadata(self, include_requirements=True):
-        print('Writing metadata')
+    def write_metadata(self, **kwargs):
+        """Writes out metadata"""
+        meth = getattr(self, "write_metadata_from_" + self.derived_from)
+        return meth(**kwargs)
+
+    def write_metadata_from_wheel(self, include_requirements=True):
+        """Writes metadata from a wheel"""
+        print('Metadata (presumably) already in wheel, skipping.')
+
+    def write_metadata_from_artifact(self, include_requirements=True, **kwargs):
+        """Writes metadata from a conda artifact"""
+        print('Writing metadata from artifact')
         lines = ["Metadata-Version: 2.1", "Name: " + self.distribution,
                  "Version: " + self.version]
         info = self.artifact_info
@@ -374,7 +425,16 @@ class Wheel:
         arcname = f"{self.distribution}-{self.version}.dist-info/METADATA"
         self._writestr_and_record(arcname, content)
 
-    def write_license_file(self):
+    def write_license_file(self, **kwargs):
+        """Writes out license"""
+        meth = getattr(self, "write_license_file_from_" + self.derived_from)
+        return meth(**kwargs)
+
+    def write_license_file_from_wheel(self, include_requirements=True):
+        """Writes license from a wheel"""
+        print('License (presumably) already in wheel, skipping.')
+
+    def write_license_file_from_artifact(self):
         license_file = os.path.join(self.basedir, 'info', 'LICENSE.txt')
         if not os.path.isfile(license_file):
             return
@@ -402,7 +462,10 @@ class Wheel:
             print('Nothing to write!')
             return
         for fsname, arcname in tqdm(files):
-            absname = os.path.join(self.basedir, fsname)
+            if os.path.isabs(fsname):
+                absname = fsname
+            else:
+                absname = os.path.join(self.basedir, fsname)
             if not os.path.isfile(absname):
                 continue
             elif False and os.path.islink(absname):
@@ -638,17 +701,37 @@ class Wheel:
         self.scripts.extend(new_scripts)
 
 
-def merge(files):
+def _merge_file_filter(files, distinfo):
+    filtered = []
+    bad_arcnames = {
+        f"{distinfo['distribution']}-{distinfo['version']}.dist-info/WHEEL",
+        f"{distinfo['distribution']}-{distinfo['version']}.dist-info/top_level.txt",
+    }
+    for f in files:
+        fsname, arcname = f
+        arcdir, arcbase = os.path.split(arcname)
+        if arcname in bad_arcnames:
+            continue
+        filtered.append(f)
+    return filtered
+
+
+def merge(files, output=None):
     """merges wheels together"""
-    print(files)
-    whl = Wheel('package', version="1.0")
+    if output is None:
+        distinfo = {"distribution": "package", "version": "1.0"}
+    else:
+        distinfo = distinfo_from_filename(output)
+    whl = Wheel(**distinfo)
+    whl.derived_from = "wheel"
     for ref, w in files.items():
         if w is None:
             continue
         whl.entry_points += w.entry_points
-        whl._records += w._records
         whl._scripts += w._scripts
         whl._includes += w._includes
-        whl._files += w._files
-    whl.write()
-
+        whl._files += _merge_file_filter(w._files, distinfo)
+    whl._files.sort()
+    outdir = '.' if output is None else os.path.dirname(output)
+    with indir(outdir or '.'):
+        whl.write()
