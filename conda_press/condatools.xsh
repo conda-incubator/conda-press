@@ -679,6 +679,7 @@ def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
         include_requirements=include_requirements,
         strip_symbols=strip_symbols,
     )
+    wheel._top = _top
     return wheel
 
 

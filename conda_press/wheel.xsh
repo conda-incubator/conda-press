@@ -351,7 +351,8 @@ class Wheel:
             Whether or not to include the requirements as part of the wheel metadata.
             Normally, this should be True.
         """
-        with ZipFile(self.filename, 'w', compression=ZIP_DEFLATED) as zf:
+        cl = {'compresslevel': 1} if sys.version_info[:2] >= (3, 7) else {}
+        with ZipFile(self.filename, 'w', compression=ZIP_DEFLATED, **cl) as zf:
             self.zf = zf
             self.write_from_filesystem('scripts')
             self.write_from_filesystem('includes')
