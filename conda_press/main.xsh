@@ -1,7 +1,7 @@
 """CLI entry point for conda-press"""
 from argparse import ArgumentParser
 
-from conda_press.wheel import merge
+from conda_press.wheel import Wheel, merge
 from conda_press.condatools import artifact_to_wheel, artifact_ref_dependency_tree_to_wheels, DEFAULT_CHANNELS
 
 
@@ -25,7 +25,8 @@ def main(args=None):
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
     if ns.merge:
-        merge(ns.files)
+        wheels = {f: Wheel.from_file(f) for f in ns.files}
+        merge(wheels)
         return
 
     for fname in ns.files:

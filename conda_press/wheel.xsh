@@ -3,6 +3,8 @@ import os
 import re
 import sys
 import base64
+import tempfile
+import configparser
 from hashlib import sha256
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 from collections import defaultdict
@@ -58,6 +60,13 @@ WIN_EXE_WEIGHTS = defaultdict(int, {
     ".cmd": 3,
     ".exe": 4,
 })
+
+
+@lazyobject
+def re_wheel_filename():
+    return re.compile(r'(?P<distribution>[^-]+)[-](?P<version>[^-]+)'
+                      r'([-](?P<build_tag>[^-]+))?[-](?P<python_tag>[^-]+)'
+                      r'[-](?P<abi_tag>[^-]+)[-](?P<platform_tag>[^-]+)\.whl')
 
 
 @lazyobject
@@ -143,6 +152,23 @@ def normalize_version(version):
     return ",".join(parts)
 
 
+def parse_entry_points(wheel_or_file):
+    """Returns a list of entry points from a Wheel or a filename"""
+    if isinstance(wheel_or_file, Wheel):
+        filename = os.path.join(
+            wheel_or_file.basedir,
+            f"{wheel_or_file.distribution}-{wheel_or_file.version}.dist-info",
+            "entry_points.txt"
+        )
+    else:
+        filename = wheel_or_file
+    if not os.path.isfile(filename):
+        print(f"entry points file {filename!r} does not exist!")
+        return []
+    config = configparser.ConfigParser()
+    config.read(filename)
+    return config.get("console_scripts", [])
+
 
 class Wheel:
     """A wheel representation that knows how to write itself out."""
@@ -210,6 +236,20 @@ class Wheel:
     @classmethod
     def from_file(cls, filename):
         """Creates a wheel object from an existing wheel."""
+        basename = os.path.basename(filename)
+        m = re_wheel_filename.match(basename)
+        if m is None:
+            raise ValueError(
+                f"{filename} is malformed, needs to match " +
+                "'{distribution}-{version}(-{build tag})?-{python tag}-"
+                "{abi tag}-{platform tag}.whl'"
+            )
+        whl = cls(**m.groupdict())
+        whl.basedir = tempfile.mkdtemp(prefix=basename + "-")
+        with ZipFile(filename) as zf:
+            zf.extractall(path=whl.basedir)
+        whl.entry_points.extend(parse_entry_points(whl))
+        return whl
 
     @property
     def filename(self):
@@ -605,6 +645,7 @@ def merge(files):
     for ref, w in files.items():
         if w is None:
             continue
+        whl.entry_points += w.entry_points
         whl._records += w._records
         whl._scripts += w._scripts
         whl._includes += w._includes
