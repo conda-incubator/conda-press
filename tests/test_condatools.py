@@ -25,7 +25,7 @@ def isexecutable(filepath):
     return bool(st.st_mode & stat.S_IXUSR)
 
 
-def test_no_symlinks(pip_install_artifact):
+def test_no_symlinks(pip_install_artifact, xonsh):
     # pip cannot unpack real symlinks, so insure it isn't
     wheel, test_env, sp = pip_install_artifact("re2=2016.11.01", include_requirements=False)
     if ON_WINDOWS:

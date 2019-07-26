@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 import tempfile
+import builtins
 import subprocess
 
 import pytest
@@ -133,3 +134,12 @@ def pip_install_artifact_tree(request):
     wheel_names = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
     for w in wheel_names:
         os.remove(w)
+
+
+@pytest.fixture()
+def xonsh(request):
+    sess = builtins.__xonsh__
+    if sess.shell is None:
+        from xonsh.shell import Shell
+        sess.shell = Shell(sess.execer, ctx=sess.ctx, shell_type="none")
+    return sess
