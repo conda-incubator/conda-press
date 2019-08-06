@@ -260,6 +260,7 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
                 filtered_records.append(r)
         pkg_records = filtered_records
     if pkg_records:
+        print("package records:", pkg_records)
         pkg_record = pkg_records[-1]
     else:
         return None
@@ -687,9 +688,11 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
                                            seen=None, include_requirements=True,
                                            skip_python=False,
                                            strip_symbols=True,
+                                           match_spec=None,
                                            _top=True):
     """Converts all artifact dependencies to wheels"""
     seen = {} if seen is None else seen
+    match_spec = artifact_ref if match_spec is None else artifact_ref + "," + match_spec
     if artifact_ref in seen:
         wheel = seen[artifact_ref]
     else:
@@ -711,6 +714,7 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
         if skip_python and dep == "python":
             continue
         dep_ref = ref_name(dep, ver_build=ver_build)
+        print_color("Building {YELLOW}" + dep_ref + "{NO_COLOR} as dependency of {GREEN}" + artifact_ref + "{NO_COLOR}")
         artifact_ref_dependency_tree_to_wheels(
             dep_ref,
             channels=channels,
