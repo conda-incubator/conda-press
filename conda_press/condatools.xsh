@@ -303,6 +303,18 @@ def download_artifact(artifact_ref_or_rec, channels=None, subdir=None):
         return download_package_rec(artifact_ref_or_rec)
 
 
+def all_deps(package_rec, names_recs, seen=None):
+    """Computes the set of all dependency names for a package."""
+    package_deps = set(map(name_from_ref, package_rec.depends))
+    seen = set() if seen is None else seen
+    if package_rec.name in seen:
+        return package_deps
+    seen.add(package_rec.name)
+    for dep_name in list(package_deps):
+        package_deps |= all_deps(names_recs[dep_name], names_recs, seen=seen)
+    return package_deps
+
+
 def ref_name(name, ver_build=None):
     if not ver_build:
         rtn = name
@@ -725,6 +737,24 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
     solver = Solver("<none>", channels, subdirs=subdirs, specs_to_add=(artifact_ref,))
     package_recs = solver.solve_final_state()
 
+    if skip_python:
+        names_recs = {pr.name: pr for pr in package_recs}
+        top_package_rec = names_recs[top_name]
+        python_deps = set()
+        non_python_deps = set()
+        direct_deps = set(map(name_from_ref, top_package_rec.depends))
+        for direct_name in direct_deps:
+            direct_all_deps = all_deps(names_recs[direct_name], names_recs)
+            if "python" in direct_all_deps:
+                python_deps |= direct_all_deps
+                python_deps.add(direct_name)
+            else:
+                non_python_deps |= direct_all_deps
+                non_python_deps.add(direct_name)
+        python_deps -= non_python_deps
+    else:
+        python_deps = set()
+
     is_top= False
     for package_rec in package_recs:
         if not top_found and package_rec.name == top_name:
@@ -737,9 +767,8 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
             print_color("Have already seen {YELLOW}" + match_spec_str + "{NO_COLOR}")
             continue
 
-        package_deps = set(map(name_from_ref, package_rec.depends))
-        if skip_python and not is_top and "python" in package_deps:
-            print_color("Skipping Python package {YELLOW}" + match_spec_str + "{NO_COLOR}")
+        if skip_python and not is_top and package_rec.name in python_deps:
+            print_color("Skipping Python package dependency {YELLOW}" + match_spec_str + "{NO_COLOR}")
             seen[match_spec_str] = None
             continue
 
