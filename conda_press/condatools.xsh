@@ -180,6 +180,8 @@ def is_shared_lib(fname):
 
 def is_elf(fname):
     """Whether or not a file is an ELF binary file."""
+    if not ON_LINUX:
+        return False
     with ${...}.swap(RAISE_SUBPROC_ERROR=False):
         return bool(!(patchelf @(fname) e>o))
 
