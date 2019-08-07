@@ -25,7 +25,7 @@ def isexecutable(filepath):
     return bool(st.st_mode & stat.S_IXUSR)
 
 
-def test_no_symlinks(pip_install_artifact):
+def test_no_symlinks(pip_install_artifact, xonsh):
     # pip cannot unpack real symlinks, so insure it isn't
     wheel, test_env, sp = pip_install_artifact("re2=2016.11.01", include_requirements=False)
     if ON_WINDOWS:
@@ -117,7 +117,7 @@ def test_xz_tree(pip_install_artifact_tree):
     assert proc.stdout.strip().startswith("xz (XZ Utils) 5.2.4")
 
 
-def test_python(pip_install_artifact_tree):
+def test_python(pip_install_artifact_tree, xonsh):
     # this tests that PYTHONPATH is getting set properly
     spec = "python={0}.{1}.{2}".format(*sys.version_info[:3])
     wheels, test_env, sp = pip_install_artifact_tree(spec)

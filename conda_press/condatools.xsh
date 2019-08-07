@@ -17,7 +17,7 @@ from ruamel.yaml import YAML
 
 import requests
 
-from conda.api import SubdirData
+from conda.api import SubdirData, Solver
 
 from conda_press.wheel import Wheel
 
@@ -77,12 +77,12 @@ def package_spec_from_meta_yaml(info=None):
 
 
 def valid_package_name(info=None):
-    fname = os.path.basename(into.artifactdir)
+    fname = os.path.basename(info.artifactdir)
     return fname.count('-') >= 3
 
 
 def package_spec_from_filename(info=None):
-    fname = os.path.basename(into.artifactdir)
+    fname = os.path.basename(info.artifactdir)
     extra, _, build = fname.rpartition('-')
     name, _, version = extra.rpartition('-')
     build = os.path.splitext(build)[0]
@@ -180,6 +180,8 @@ def is_shared_lib(fname):
 
 def is_elf(fname):
     """Whether or not a file is an ELF binary file."""
+    if not ON_LINUX:
+        return False
     with ${...}.swap(RAISE_SUBPROC_ERROR=False):
         return bool(!(patchelf @(fname) e>o))
 
@@ -214,6 +216,17 @@ def major_minor(ver):
     return major, minor
 
 
+@lazyobject
+def re_name_from_ref():
+    return re.compile("^([A-Za-z0-9_-]+).*?")
+
+
+def name_from_ref(ref):
+    """Gets an artifact name from a ref spec string."""
+    return re_name_from_ref.match(ref).group(1).lower()
+
+
+
 PLATFORM_SUBDIRS_TO_TAGS = {
     "noarch": "any",
     "linux-32": "linux_i386",
@@ -224,7 +237,21 @@ PLATFORM_SUBDIRS_TO_TAGS = {
 }
 
 
-def download_artifact(artifact_ref, channels=None, subdir=None):
+def download_package_rec(pkg_record):
+    """Downloads a package record, returning the local filename."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    local_fn = os.path.join(CACHE_DIR, pkg_record.fn)
+    if os.path.isfile(local_fn):
+        return local_fn
+    print(f"Downloading {pkg_record.url}")
+    resp = requests.get(pkg_record.url)
+    with open(local_fn, 'wb') as f:
+        f.write(resp.content)
+    print("Download complete")
+    return local_fn
+
+
+def download_artifact_ref(artifact_ref, channels=None, subdir=None):
     """Searches for an artifact on a variety of channels. If subdir is not
     given, only "noarch" is used. Noarch is searched after the given subdit.
     """
@@ -260,20 +287,20 @@ def download_artifact(artifact_ref, channels=None, subdir=None):
                 filtered_records.append(r)
         pkg_records = filtered_records
     if pkg_records:
+        print("package records:", pkg_records)
         pkg_record = pkg_records[-1]
     else:
         return None
         raise RuntimeError(f"could not find {artifact_ref} on {channels}")
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    local_fn = os.path.join(CACHE_DIR, pkg_record.fn)
-    if os.path.isfile(local_fn):
-        return local_fn
-    print(f"Downloading {pkg_record.url}")
-    resp = requests.get(pkg_record.url)
-    with open(local_fn, 'wb') as f:
-        f.write(resp.content)
-    print("Download complete")
-    return local_fn
+    return download_package_rec(pkg_record)
+
+
+def download_artifact(artifact_ref_or_rec, channels=None, subdir=None):
+    """Downloads an artifact from a ref spec or a PackageRecord."""
+    if isinstance(artifact_ref_or_rec, str):
+        return download_artifact_ref(artifact_ref_or_rec, channels=channels, subdir=subdir)
+    else:
+        return download_package_rec(artifact_ref_or_rec)
 
 
 def ref_name(name, ver_build=None):
@@ -663,11 +690,11 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True):
     return wheel
 
 
-def artifact_ref_to_wheel(artifact_ref, channels=None, subdir=None,
+def package_to_wheel(ref_or_rec, channels=None, subdir=None,
                           include_requirements=True, strip_symbols=True,
                           skip_python=False, _top=True):
-    """Converts a package ref spec to a wheel."""
-    path = download_artifact(artifact_ref, channels=channels, subdir=subdir)
+    """Converts a package ref spec or a PackageRecord into a wheel."""
+    path = download_artifact(ref_or_rec, channels=channels, subdir=subdir)
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
@@ -687,38 +714,45 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
                                            seen=None, include_requirements=True,
                                            skip_python=False,
                                            strip_symbols=True,
-                                           _top=True):
-    """Converts all artifact dependencies to wheels"""
+                                           ):
+    """Converts all artifact dependencies to wheels for a ref spec string"""
     seen = {} if seen is None else seen
-    if artifact_ref in seen:
-        wheel = seen[artifact_ref]
-    else:
-        wheel = artifact_ref_to_wheel(
-            artifact_ref,
-            channels=channels,
-            subdir=subdir,
-            skip_python=skip_python,
-            include_requirements=include_requirements,
-            strip_symbols=strip_symbols,
-            _top=_top
-        )
-        seen[artifact_ref] = wheel
-        if wheel is None:
-            return seen
-    # now loop through deps
-    info = wheel.artifact_info
-    for dep, ver_build in info.run_requirements.items():
-        if skip_python and dep == "python":
+    top_name = name_from_ref(artifact_ref)
+    top_found = False
+
+    channels = DEFAULT_CHANNELS if channels is None else channels
+    subdirs = (subdir, "noarch") if subdir else ("noarch",)
+    solver = Solver("<none>", channels, subdirs=subdirs, specs_to_add=(artifact_ref,))
+    package_recs = solver.solve_final_state()
+
+    is_top= False
+    for package_rec in package_recs:
+        if not top_found and package_rec.name == top_name:
+            is_top = top_found = True
+        else:
+            is_top = False
+
+        match_spec_str = str(package_rec.to_match_spec())
+        if match_spec_str in seen:
+            print_color("Have already seen {YELLOW}" + match_spec_str + "{NO_COLOR}")
             continue
-        dep_ref = ref_name(dep, ver_build=ver_build)
-        artifact_ref_dependency_tree_to_wheels(
-            dep_ref,
+
+        package_deps = set(map(name_from_ref, package_rec.depends))
+        if skip_python and not is_top and "python" in package_deps:
+            print_color("Skipping Python package {YELLOW}" + match_spec_str + "{NO_COLOR}")
+            seen[match_spec_str] = None
+            continue
+
+        print_color("Building {YELLOW}" + match_spec_str + "{NO_COLOR} as dependency of {GREEN}" + artifact_ref + "{NO_COLOR}")
+        wheel = package_to_wheel(
+            package_rec,
             channels=channels,
             subdir=subdir,
-            seen=seen,
             skip_python=skip_python,
             include_requirements=include_requirements,
             strip_symbols=strip_symbols,
-            _top=False,
+            _top=is_top
         )
+        seen[match_spec_str] = wheel
+
     return seen
