@@ -8,8 +8,6 @@ from setuptools import setup
 
 def main():
     """The main entry point."""
-    if sys.version_info[:2] < (3, 4):
-        sys.exit('conda-press currently requires Python 3.4+')
     with open(os.path.join(os.path.dirname(__file__), 'README.md'), 'r') as f:
         readme = f.read()
     if sys.platform == "win32":
@@ -33,6 +31,7 @@ def main():
         package_data={'conda_press': ['*.xsh']},
         scripts=scripts,
         install_requires=['xonsh', 'lazyasd', 'ruamel.yaml', 'tqdm'],
+        python_requires=">=3.5",
         zip_safe=False,
         )
     setup(**skw)
