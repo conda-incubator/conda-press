@@ -19,7 +19,7 @@ def main():
         description='Press conda packages into wheels',
         long_description=readme,
         license='BSD',
-        version='0.0.0',
+        version='0.0.1',
         author='Anthony Scopatz',
         maintainer='Anthony Scopatz',
         author_email='scopatz@gmail.com',
