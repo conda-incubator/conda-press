@@ -18,6 +18,7 @@ def main():
         name='conda-press',
         description='Press conda packages into wheels',
         long_description=readme,
+        long_description_content_type='text/markdown',
         license='BSD',
         version='0.0.1',
         author='Anthony Scopatz',
