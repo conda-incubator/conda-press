@@ -545,12 +545,15 @@ class Wheel:
             fspath = os.path.join(self.basedir, fsname)
             containing_dir = os.path.dirname(arcname)
             relpath_to_lib = os.path.relpath("lib/", containing_dir)
-            rpath_to_lib = "$ORIGIN/" + relpath_to_lib
             if sys.platform.startswith("linux"):
+                rpath_to_lib = "$ORIGIN/" + relpath_to_lib
                 current_rpath = $(patchelf --print-rpath @(fspath)).strip()
                 new_rpath = rpath_to_lib + ":" + current_rpath if current_rpath else new_rpath
                 print(f'  new RPATH is {new_rpath}')
                 $(patchelf --set-rpath @(new_rpath) @(fspath))
+            elif sys.platform == 'darwin':
+                rpath_to_lib = "@loader_path/" + relpath_to_lib
+                $(install_name_tool -add_rpath @(rpath_to_lib) @(fspath))
             else:
                 raise RuntimeError(f'cannot rewrite RPATHs on {sys.platform}')
 
