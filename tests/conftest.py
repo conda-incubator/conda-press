@@ -107,13 +107,21 @@ def pip_install_artifact(request):
 def pip_install_artifact_tree(request):
     wheels = {}
     test_env = tempfile.mkdtemp(prefix="test-env")
-    def create_wheels_and_install(artifact_ref, include_requirements=True):
+    def create_wheels_and_install(artifact_ref, include_requirements=True, skip_python=False):
         nonlocal wheels
         subdir = PLATFORM_TO_SUBDIR[sys.platform]
-        artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir, include_requirements=include_requirements)
+        artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir,
+            include_requirements=include_requirements,
+            skip_python=skip_python,
+        )
         subprocess.run(['virtualenv', test_env], check=True)
-        wheel_filenames = " ".join(reversed([w.filename for w in wheels.values()]))
-        if sys.platform.startswith('win'):
+        wheel_filenames = " ".join(reversed([w.filename for w in wheels.values()
+                                             if w is not None]))
+        if skip_python:
+            # FIXME: remove this case as part of resolving
+            # https://github.com/regro/conda-press/issues/17
+            site_packages = "fake!"
+        elif sys.platform.startswith('win'):
             site_packages = os.path.join(test_env, 'Lib', 'site-packages')
             code = f"{test_env}\\Scripts\\activate & pip install {wheel_filenames}"
             subprocess.run(code, check=True, shell=True)
@@ -129,6 +137,8 @@ def pip_install_artifact_tree(request):
 
     yield create_wheels_and_install
     for wheel in wheels.values():
+        if wheel is None:
+            continue
         wheel.clean()
     rmtree(test_env, force=True)
     wheel_names = glob.glob(os.path.join(os.path.dirname(__file__), "*.whl"))
