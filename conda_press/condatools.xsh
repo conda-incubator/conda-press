@@ -170,7 +170,7 @@ def is_shared_lib(fname):
     if sys.platform.startswith('linux'):
         rtn = (ext == '.so')
     elif sys.platform.startswith('darwin'):
-        rtn = (ext == '.dylib')
+        rtn = (ext == '.dylib') || (ext == '.so') # cpython extensions use .so because ...?
     elif sys.platform.startswith('win'):
         rtn = (ext == '.dll')
     else:
