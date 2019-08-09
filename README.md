@@ -2,6 +2,9 @@
 
 Press conda packages into wheels.
 
+The wheels created by conda-press are usable in a general Python
+setting, i.e. outside of a conda managed environment.
+
 ## Quick start
 
 Run the `conda press` command and point it at either an artifact
@@ -37,21 +40,12 @@ valid wheel.
 
 **Issue 2:**
 
-1. Yes, people should use the conda packages directly.
-2. However, we know that people pip install packages in their conda
-   environment anyways!
-3. This can cause a lot of dynamic linking unpleasentness because suddenly
-   the user's environments are linking to different run times.
-4. If they happen to use the wheels created by conda-press while using conda,
-   the user can obtain a consistent environment (even though they should have
-   used the equivalent conda package).
-5. By pip installing against this channel, a user will effectively swap out
-   their whole environment for the conda-version.
+Many packages with compiled extensions do not have wheels available on one or more
+popular platforms (Windows, Mac, Linux). This is because building wheels can
+be very difficult.  Conda has a lot of packages that are not available as wheels otherwise.
+Conda-press allows these packages to easily become generally usable wheels.
 
 **Issue 3:** Some people want a package index built on newer ABIs than `manylinux<N>`
-
-**Issue 4:** Conda has a lot of packages that are not available as wheels otherwise.
-Conda-press allows these packages to easily become wheels.
 
 
 ## How to install
