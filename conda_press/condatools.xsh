@@ -523,7 +523,7 @@ class ArtifactInfo:
             if self.noarch == "python":
                 if pyver.startswith('=='):
                     pytag = 'py' + ''.join(major_minor(pyver[2:]))
-                elif pyver[0].isdigit():
+                elif pyver[:1].isdigit():
                     pytag = 'py' + ''.join(major_minor(pyver))
                 elif pyver.startswith('>=') and ',<' in pyver:
                     # pinned to a single python version
@@ -536,7 +536,7 @@ class ArtifactInfo:
             elif pyver:
                 if pyver.startswith('=='):
                     pytag = 'cp' + ''.join(major_minor(pyver[2:]))
-                elif pyver[0].isdigit():
+                elif pyver[:1].isdigit():
                     pytag = 'cp' + ''.join(major_minor(pyver))
                 elif pyver.startswith('>=') and ',<' in pyver:
                     # pinned to a single python version
@@ -755,7 +755,7 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
     else:
         python_deps = set()
 
-    is_top= False
+    is_top = False
     for package_rec in package_recs:
         if not top_found and package_rec.name == top_name:
             is_top = top_found = True

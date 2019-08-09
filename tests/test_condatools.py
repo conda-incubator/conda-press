@@ -136,3 +136,9 @@ def test_python(pip_install_artifact_tree, xonsh):
     norm_sys_path = [os.path.normpath(p) for p in sys_path]
     norm_sp = os.path.normpath(sp)
     assert norm_sp in norm_sys_path
+
+
+def test_click(pip_install_artifact_tree, xonsh):
+    # tests that we can create a click package
+    # see https://github.com/regro/conda-press/issues/15
+    wheels, test_env, sp = pip_install_artifact_tree("click=7.0=py_0", skip_python=True)
