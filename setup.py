@@ -31,7 +31,7 @@ def main():
         package_dir={'conda_press': 'conda_press'},
         package_data={'conda_press': ['*.xsh']},
         scripts=scripts,
-        install_requires=['xonsh', 'lazyasd', 'ruamel.yaml', 'tqdm'],
+        install_requires=['xonsh', 'lazyasd', 'ruamel.yaml', 'tqdm', 'requests'],
         python_requires=">=3.5",
         zip_safe=False,
         )
