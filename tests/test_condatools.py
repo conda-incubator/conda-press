@@ -12,7 +12,7 @@ from conda_press.condatools import SYSTEM, SO_EXT
 
 ON_LINUX = (SYSTEM == "Linux")
 ON_WINDOWS = (SYSTEM == "Windows")
-
+ON_MAC = (SYSTEM == "Darwin")
 
 skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run on Linux")
 
@@ -142,3 +142,9 @@ def test_click(pip_install_artifact_tree, xonsh):
     # tests that we can create a click package
     # see https://github.com/regro/conda-press/issues/15
     wheels, test_env, sp = pip_install_artifact_tree("click=7.0=py_0", skip_python=True)
+
+def test_uvloop(pip_install_artifact_tree, xonsh):
+    # this should succeed after PR #16, because python will no longer be listed as a requirement
+    # FIXME add 'fatten' support to test harness
+    #wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2", skip_python=True, fatten=True)
+    pass
