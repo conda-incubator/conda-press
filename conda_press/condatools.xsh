@@ -170,7 +170,7 @@ def is_shared_lib(fname):
     if sys.platform.startswith('linux'):
         rtn = (ext == '.so')
     elif sys.platform.startswith('darwin'):
-        rtn = (ext == '.dylib')
+        rtn = (ext == '.dylib') || (ext == '.so') # cpython extensions use .so because ...?
     elif sys.platform.startswith('win'):
         rtn = (ext == '.dll')
     else:
@@ -666,7 +666,7 @@ class ArtifactInfo:
                 dep.clean()
 
 
-def artifact_to_wheel(path, include_requirements=True, strip_symbols=True):
+def artifact_to_wheel(path, include_requirements=True, strip_symbols=True, skip_python=False):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
@@ -694,6 +694,8 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True):
         _remap_noarch_python(wheel, info)
     elif "python" in info.run_requirements:
         _remap_site_packages(wheel, info)
+        if skip_python:
+          info.run_requirements.pop('python')
     wheel.rewrite_python_shebang()
     wheel.rewrite_rpaths()
     wheel.rewrite_scripts_linking()
@@ -717,6 +719,7 @@ def package_to_wheel(ref_or_rec, channels=None, subdir=None,
         info,
         include_requirements=include_requirements,
         strip_symbols=strip_symbols,
+        skip_python=skip_python
     )
     wheel._top = _top
     return wheel
