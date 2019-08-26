@@ -15,6 +15,7 @@ ON_WINDOWS = (SYSTEM == "Windows")
 ON_MAC = (SYSTEM == "Darwin")
 
 skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run on Linux")
+skip_if_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="can not be run on Windows")
 
 
 def isexecutable(filepath):
@@ -143,7 +144,6 @@ def test_click(pip_install_artifact_tree, xonsh):
     # see https://github.com/regro/conda-press/issues/15
     wheels, test_env, sp = pip_install_artifact_tree("click=7.0=py_0", skip_python=True)
 
+@skip_if_on_windows
 def test_uvloop(pip_install_artifact_tree, xonsh):
-    # this should succeed after PR #16, because python will no longer be listed as a requirement
-    # FIXME add 'fatten' support to test harness
     wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2", skip_python=True, fatten=True)
