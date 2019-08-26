@@ -10,5 +10,10 @@
   github: jschueller
 - name: Anthony Scopatz
   email: scopatz@gmail.com
-  num_commits: 103
+  num_commits: 114
   first_commit: 2019-04-05 16:53:05
+- name: Isaiah Norton
+  email: isaiah.norton@gmail.com
+  num_commits: 5
+  first_commit: 2019-08-09 09:21:03
+  github: ihnorton
