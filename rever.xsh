@@ -4,6 +4,7 @@ $GITHUB_ORG = 'regro'
 $ACTIVITIES = ['authors', 'version_bump', 'changelog',
                'tag', 'push_tag',
                'ghrelease', 'pypi',
+               'conda_forge',
               ]
 
 $AUTHORS_FILENAME = 'AUTHORS.md'
