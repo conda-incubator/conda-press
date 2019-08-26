@@ -700,7 +700,7 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True, skip_
     wheel.rewrite_rpaths()
     wheel.rewrite_scripts_linking()
     wheel.entry_points = info.entry_points
-    wheel.write(include_requirements=include_requirements)
+    wheel.write(include_requirements=include_requirements, skip_python=skip_python)
     return wheel
 
 
