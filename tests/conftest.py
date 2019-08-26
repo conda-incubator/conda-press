@@ -13,6 +13,7 @@ from xonsh.lib.os import rmtree
 
 from conda.api import SubdirData
 
+from conda_press.wheel import fatten_from_seen
 from conda_press.condatools import artifact_to_wheel, CACHE_DIR, artifact_ref_dependency_tree_to_wheels
 
 
@@ -107,23 +108,23 @@ def pip_install_artifact(request):
 def pip_install_artifact_tree(request):
     wheels = {}
     test_env = tempfile.mkdtemp(prefix="test-env")
-    def create_wheels_and_install(artifact_ref, include_requirements=True, skip_python=False):
+    def create_wheels_and_install(artifact_ref, include_requirements=True,
+                                  skip_python=False, fatten=False):
         nonlocal wheels
         subdir = PLATFORM_TO_SUBDIR[sys.platform]
-        artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir,
+        seen = artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir,
             include_requirements=include_requirements,
             skip_python=skip_python,
         )
+        if fatten:
+            wheels = fatten_from_seen(seen)
         subprocess.run(['virtualenv', test_env], check=True)
         wheel_filenames = " ".join(reversed([w.filename for w in wheels.values()
                                              if w is not None]))
-        if skip_python:
-            # FIXME: remove this case as part of resolving
-            # https://github.com/regro/conda-press/issues/17
-            site_packages = "fake!"
-        elif sys.platform.startswith('win'):
+        if sys.platform.startswith('win'):
             site_packages = os.path.join(test_env, 'Lib', 'site-packages')
             code = f"{test_env}\\Scripts\\activate & pip install {wheel_filenames}"
+            print("Running:\n  " + code)
             subprocess.run(code, check=True, shell=True)
         else:
             site_packages = glob.glob(os.path.join(test_env, 'lib', 'python*', 'site-packages'))[0]
@@ -132,6 +133,7 @@ def pip_install_artifact_tree(request):
             #import_tests = os.path.join(wheel.basedir, 'info', 'test', 'run_test.py')
             #if os.path.isfile(import_tests):
             #    code += f"; python {import_tests}"
+            print("Running:\n  " + code)
             subprocess.run(["bash", "-c", code], check=True)
         return wheels, test_env, site_packages
 

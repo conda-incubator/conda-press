@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 
 from xonsh.lib.os import rmtree
 
-from conda_press.wheel import Wheel, merge
+from conda_press.wheel import Wheel, merge, fatten_from_seen
 from conda_press.condatools import artifact_to_wheel, artifact_ref_dependency_tree_to_wheels, DEFAULT_CHANNELS
 
 
@@ -46,20 +46,7 @@ def main(args=None):
                 strip_symbols=ns.strip_symbols,
                 channels=channels)
             if ns.fatten:
-                wheels = {}
-                output = ns.output
-                os.makedirs('tmp-wheels', exist_ok=True)
-                for w in seen.values():
-                    if w is None:
-                        continue
-                    fname = w.filename
-                    if output is None and getattr(w, '_top', False):
-                        output = fname
-                    reloc = os.path.join('tmp-wheels', fname)
-                    shutil.move(fname, reloc)
-                    wheels[reloc] = Wheel.from_file(reloc)
-                merge(wheels, output=output)
-                rmtree('tmp-wheels')
+                fatten_from_seen(seen, output=ns.output)
         else:
             print(f'Converting {fname} to wheel')
             artifact_to_wheel(fname, strip_symbols=ns.strip_symbols)

@@ -2,6 +2,7 @@
 import os
 import re
 import sys
+import shutil
 import base64
 import tempfile
 import configparser
@@ -12,7 +13,7 @@ from collections.abc import Sequence, MutableSequence
 
 from tqdm import tqdm
 from lazyasd import lazyobject
-from xonsh.lib.os import indir
+from xonsh.lib.os import indir, rmtree
 
 from conda_press import __version__ as VERSION
 
@@ -739,3 +740,25 @@ def merge(files, output=None):
     outdir = '.' if output is None else os.path.dirname(output)
     with indir(outdir or '.'):
         whl.write()
+    return whl
+
+
+def fatten_from_seen(seen, output=None):
+    """Merges wheels from a dict of seen wheels.
+    Returns a dict mapping the name of the created file to the Wheel.
+    """
+    wheels = {}
+    os.makedirs('tmp-wheels', exist_ok=True)
+    for w in seen.values():
+        if w is None:
+            continue
+        fname = w.filename
+        if output is None and getattr(w, '_top', False):
+            output = fname
+        reloc = os.path.join('tmp-wheels', fname)
+        shutil.move(fname, reloc)
+        wheels[reloc] = Wheel.from_file(reloc)
+    whl = merge(wheels, output=output)
+    rmtree('tmp-wheels')
+    print("Created fat wheel: " + output)
+    return {output: whl}
