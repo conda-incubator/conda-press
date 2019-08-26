@@ -242,6 +242,9 @@ class Wheel:
             * "none": wheel object created from nothing
             * "artifact": wheel object created from conda artifact
             * "wheel": wheel object created from a wheel file.
+        component_wheels : dict or None
+            Mapping of component wheels when merging many wheels into one.
+            This is only non-None valued during the actual merge operation.
         scripts : sequence of (filesystem-str, archive-str) tuples or None
             This maps filesystem paths to the scripts/filename.ext in the archive.
             If an entry is a filesystem path, it will be converted to the correct
@@ -267,6 +270,7 @@ class Wheel:
         self.artifact_info = None
         self.entry_points = []
         self.moved_shared_libs = []
+        self.component_wheels = None
         self._records = [(f"{distribution}-{version}.dist-info/RECORD", "", "")]
         self._scripts = []
         self._includes = []
@@ -343,7 +347,7 @@ class Wheel:
     def files(self):
         self._files = None
 
-    def write(self, include_requirements=True):
+    def write(self, include_requirements=True, skip_python=False):
         """Writes out the wheel file to disk.
 
         Parameters
@@ -360,7 +364,10 @@ class Wheel:
             self.write_from_filesystem('files')
             self.write_entry_points()
             self.write_top_level()
-            self.write_metadata(include_requirements=include_requirements)
+            self.write_metadata(
+                include_requirements=include_requirements,
+                skip_python=skip_python,
+            )
             self.write_license_file()
             self.write_wheel_metadata()
             self.write_record()  # This *has* to be the last write
@@ -381,11 +388,27 @@ class Wheel:
         meth = getattr(self, "write_metadata_from_" + self.derived_from)
         return meth(**kwargs)
 
-    def write_metadata_from_wheel(self, include_requirements=True):
+    def write_metadata_from_wheel(self, **kwargs):
         """Writes metadata from a wheel"""
-        print('Metadata (presumably) already in wheel, skipping.')
+        print('Filtering metadata for merged in wheels.')
+        arcname = f"{self.distribution}-{self.version}.dist-info/METADATA"
+        top_wheel = [w for w in self.component_wheels.values()
+                     if w is not None and getattr(w, "_top", False)][0]
+        with open(os.path.join(top_wheel.basedir, arcname), 'r') as f:
+            lines = f.readlines()
+        requires_lines = [(i, line.split()[1]) for i, line in enumerate(lines)
+                          if line.startswith('Requires-Dist:')]
+        merged_dists = {w.distribution for w in self.component_wheels.values()
+                        if w is not None}
+        for i, dist in reversed(requires_lines):
+            if dist in merged_dists:
+                print("Removing dependence on " + dist)
+                del lines[i]
+        content = "\n".join(lines)
+        self._writestr_and_record(arcname, content)
 
-    def write_metadata_from_artifact(self, include_requirements=True, **kwargs):
+    def write_metadata_from_artifact(self, include_requirements=True, skip_python=False,
+                                     **kwargs):
         """Writes metadata from a conda artifact"""
         print('Writing metadata from artifact')
         lines = ["Metadata-Version: 2.1", "Name: " + self.distribution,
@@ -399,6 +422,8 @@ class Wheel:
         if include_requirements and info is not None:
             for name, ver_build in info.run_requirements.items():
                 name = dist_escape(name)
+                if skip_python and name == "python":
+                    continue
                 ver, _, build = ver_build.partition(" ")
                 ver = normalize_version(ver)
                 line = f"Requires-Dist: {name} {ver}"
@@ -710,6 +735,7 @@ def _merge_file_filter(files, distinfo):
     filtered = []
     bad_arcnames = {
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/WHEEL",
+        f"{distinfo['distribution']}-{distinfo['version']}.dist-info/METADATA",
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/top_level.txt",
     }
     for f in files:
@@ -729,6 +755,7 @@ def merge(files, output=None):
         distinfo = distinfo_from_filename(output)
     whl = Wheel(**distinfo)
     whl.derived_from = "wheel"
+    whl.component_wheels = files
     for ref, w in files.items():
         if w is None:
             continue
@@ -740,6 +767,7 @@ def merge(files, output=None):
     outdir = '.' if output is None else os.path.dirname(output)
     with indir(outdir or '.'):
         whl.write()
+    whl.component_wheels = None
     return whl
 
 
@@ -753,11 +781,13 @@ def fatten_from_seen(seen, output=None):
         if w is None:
             continue
         fname = w.filename
-        if output is None and getattr(w, '_top', False):
+        istop = getattr(w, '_top', False)
+        if output is None and istop:
             output = fname
         reloc = os.path.join('tmp-wheels', fname)
         shutil.move(fname, reloc)
         wheels[reloc] = Wheel.from_file(reloc)
+        wheels[reloc]._top = istop
     whl = merge(wheels, output=output)
     rmtree('tmp-wheels')
     print("Created fat wheel: " + output)
