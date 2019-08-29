@@ -6,7 +6,7 @@ lets you transform conda packages (artifacts) into Python wheels. This talk will
 * discuss why in the world you would want to do such a terrible thing,
 * demonstrate that you can do such a terrible thing (live!),
 * dive-in to how such as terrible thing is done, and
-* define some safety precausions when doing such a terrible thing on your own.
+* define some safety precautions when doing such a terrible thing on your own.
 
 ## Discuss
 
@@ -37,12 +37,12 @@ created by conda-press.
 
 This talk will also explain the underlying architecture of conda-press, and how
 typical workflows are implemented. Conda-press relies on a number of external,
-platform-specifc command line utlities. Conda-press is largely written in
-the xonsh langauge to enable this.
+platform-specific command line utilities. Conda-press is largely written in
+the xonsh language to enable this.
 
 ## Defense
 
 This talk will also offer guidance against common pitfalls when creating
 wheels with conda-press. This includes the distinction between fat and skinny
 wheels, namespace differences between PyPI and conda-forge, and issues with
-prefix substituions.
+prefix substitutions.
