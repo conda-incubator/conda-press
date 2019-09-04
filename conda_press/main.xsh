@@ -1,12 +1,12 @@
 """CLI entry point for conda-press"""
-import os
-import shutil
 from argparse import ArgumentParser
 
-from xonsh.lib.os import rmtree
-
 from conda_press.wheel import Wheel, merge, fatten_from_seen
-from conda_press.condatools import artifact_to_wheel, artifact_ref_dependency_tree_to_wheels, DEFAULT_CHANNELS
+from conda_press.condatools import (
+    artifact_to_wheel,
+    artifact_ref_dependency_tree_to_wheels,
+    DEFAULT_CHANNELS
+)
 
 
 def main(args=None):
