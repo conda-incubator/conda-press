@@ -413,10 +413,18 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
-        self.exclude_deps = exclude_deps if exclude_deps else []
+        self.exclude_deps = exclude_deps
 
     def clean(self):
         rmtree(self._artifactdir, force=True)
+
+    @property
+    def exclude_deps(self):
+        return self.exclude_deps
+
+    @exclude_deps.setter
+    def exclude_deps(self, list_deps):
+        self._exclude_deps = list_deps if list_deps else []
 
     @property
     def artifactdir(self):
@@ -497,6 +505,7 @@ class ArtifactInfo:
             reqs = self.index_json["depends"]
         else:
             reqs = self.meta_yaml.get('requirements', {}).get('run', ())
+
         rr = dict([x.partition(' ')[::2] for x in reqs if x not in self.exclude_deps])
         self._run_requirements = rr
         return self._run_requirements
