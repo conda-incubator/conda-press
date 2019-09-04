@@ -398,7 +398,7 @@ def find_link_target(source, info=None, channels=None, deps_cache=None,
 class ArtifactInfo:
     """Representation of artifact info/ directory."""
 
-    def __init__(self, artifactdir):
+    def __init__(self, artifactdir, exclude_deps=None):
         self._artifactdir = None
         self._python_tag = None
         self._abi_tag = None
@@ -413,6 +413,7 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
+        self.exclude_deps = exclude_deps if exclude_deps else []
 
     def clean(self):
         rmtree(self._artifactdir, force=True)
@@ -496,7 +497,7 @@ class ArtifactInfo:
             reqs = self.index_json["depends"]
         else:
             reqs = self.meta_yaml.get('requirements', {}).get('run', ())
-        rr = dict([x.partition(' ')[::2] for x in reqs])
+        rr = dict([x.partition(' ')[::2] for x in reqs if x not in self.exclude_deps])
         self._run_requirements = rr
         return self._run_requirements
 
@@ -604,7 +605,8 @@ class ArtifactInfo:
         return self.index_json["subdir"]
 
     @classmethod
-    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True, skip_python=False):
+    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True,
+                     skip_python=False, exclude_deps=None):
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -618,7 +620,7 @@ class ArtifactInfo:
         tmpdir = tempfile.mkdtemp(prefix=canonical_name)
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
-        info = cls(tmpdir)
+        info = cls(tmpdir, exclude_deps)
         if skip_python and "python" in info.run_requirements:
             return info
         if strip_symbols:
@@ -666,15 +668,19 @@ class ArtifactInfo:
                 dep.clean()
 
 
-def artifact_to_wheel(path, include_requirements=True, strip_symbols=True, skip_python=False):
+def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
+                      skip_python=False, exclude_deps=None):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
     # unzip the artifact
     if path is None:
         return
-    info = path if isinstance(path, ArtifactInfo) \
-           else ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols)
+    if isinstance(path, ArtifactInfo):
+        path.exclude_deps = exclude_deps
+        info = path
+    else:
+        info = ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols, exclude_deps=exclude_deps)
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
         if checker(info=info):

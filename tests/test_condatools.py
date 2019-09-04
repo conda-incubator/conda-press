@@ -5,9 +5,10 @@ import stat
 import glob
 import subprocess
 
+import pkginfo
 import pytest
 
-from conda_press.condatools import SYSTEM, SO_EXT
+from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel
 
 
 ON_LINUX = (SYSTEM == "Linux")
@@ -144,6 +145,23 @@ def test_click(pip_install_artifact_tree, xonsh):
     # see https://github.com/regro/conda-press/issues/15
     wheels, test_env, sp = pip_install_artifact_tree("click=7.0=py_0", skip_python=True)
 
+
 @skip_if_on_windows
 def test_uvloop(pip_install_artifact_tree, xonsh):
     wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2", skip_python=True, fatten=True)
+
+
+def test_exclude_deps(xonsh):
+    artifact_to_wheel(
+        os.path.join("data", "test-deps-0.0.1-py_0.tar.bz2"),
+        exclude_deps=[]
+    )
+    info = pkginfo.get_metadata("test_deps-0.0.1-py2.py3-none-any.whl")
+    assert "opencv" in info.requires_dist
+
+    artifact_to_wheel(
+        os.path.join("data", "test-deps-0.0.1-py_0.tar.bz2"),
+        exclude_deps=["opencv"]
+    )
+    info = pkginfo.get_metadata("test_deps-0.0.1-py2.py3-none-any.whl")
+    assert "opencv" not in info.requires_dist
