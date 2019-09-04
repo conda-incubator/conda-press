@@ -413,6 +413,7 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
+        self._exclude_deps = []
         self.exclude_deps = exclude_deps
 
     def clean(self):
