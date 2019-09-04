@@ -413,6 +413,7 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
+        self._exclude_deps = []
         self.exclude_deps = exclude_deps
 
     def clean(self):
@@ -420,7 +421,7 @@ class ArtifactInfo:
 
     @property
     def exclude_deps(self):
-        return self.exclude_deps
+        return self._exclude_deps
 
     @exclude_deps.setter
     def exclude_deps(self, list_deps):
@@ -616,7 +617,6 @@ class ArtifactInfo:
     @classmethod
     def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True,
                      skip_python=False, exclude_deps=None):
-        exclude_deps = exclude_deps if exclude_deps else []
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
