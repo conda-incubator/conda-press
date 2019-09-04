@@ -5,7 +5,6 @@ import stat
 import glob
 import subprocess
 
-import pkginfo
 import pytest
 
 from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel
@@ -151,17 +150,11 @@ def test_uvloop(pip_install_artifact_tree, xonsh):
     wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2", skip_python=True, fatten=True)
 
 
-def test_exclude_deps(xonsh):
-    artifact_to_wheel(
-        os.path.join("data", "test-deps-0.0.1-py_0.tar.bz2"),
-        exclude_deps=[]
-    )
-    info = pkginfo.get_metadata("test_deps-0.0.1-py2.py3-none-any.whl")
-    assert "opencv" in info.requires_dist
+def test_exclude_deps(xonsh, data_folder, tmpdir):
+    with tmpdir.as_cwd():
+        conda_pkg = os.path.join(data_folder, "test-deps-0.0.1-py_0.tar.bz2")
+        wheel = artifact_to_wheel(conda_pkg)
+        assert "opencv" in wheel.artifact_info.run_requirements
 
-    artifact_to_wheel(
-        os.path.join("data", "test-deps-0.0.1-py_0.tar.bz2"),
-        exclude_deps=["opencv"]
-    )
-    info = pkginfo.get_metadata("test_deps-0.0.1-py2.py3-none-any.whl")
-    assert "opencv" not in info.requires_dist
+        wheel = artifact_to_wheel(conda_pkg, exclude_deps=["opencv"])
+        assert "opencv" not in wheel.artifact_info.run_requirements

@@ -607,6 +607,7 @@ class ArtifactInfo:
     @classmethod
     def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True,
                      skip_python=False, exclude_deps=None):
+        exclude_deps = exclude_deps if exclude_deps else []
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -712,20 +713,25 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
 
 def package_to_wheel(ref_or_rec, channels=None, subdir=None,
                           include_requirements=True, strip_symbols=True,
-                          skip_python=False, _top=True):
+                          skip_python=False, _top=True, exclude_deps=None):
     """Converts a package ref spec or a PackageRecord into a wheel."""
     path = download_artifact(ref_or_rec, channels=channels, subdir=subdir)
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
-    info = ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols, skip_python=skip_python)
+    info = ArtifactInfo.from_tarball(
+        path, strip_symbols=strip_symbols,
+        skip_python=skip_python,
+        exclude_deps=exclude_deps
+    )
     if skip_python and not _top and "python" in info.run_requirements:
         return None
     wheel = artifact_to_wheel(
         info,
         include_requirements=include_requirements,
         strip_symbols=strip_symbols,
-        skip_python=skip_python
+        skip_python=skip_python,
+        exclude_deps=exclude_deps
     )
     wheel._top = _top
     return wheel
@@ -735,6 +741,7 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
                                            seen=None, include_requirements=True,
                                            skip_python=False,
                                            strip_symbols=True,
+                                           exclude_deps=None
                                            ):
     """Converts all artifact dependencies to wheels for a ref spec string"""
     seen = {} if seen is None else seen
@@ -789,7 +796,8 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
             skip_python=skip_python,
             include_requirements=include_requirements,
             strip_symbols=strip_symbols,
-            _top=is_top
+            _top=is_top,
+            exclude_deps=exclude_deps
         )
         seen[match_spec_str] = wheel
 
