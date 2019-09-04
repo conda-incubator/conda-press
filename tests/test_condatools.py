@@ -150,7 +150,7 @@ def test_uvloop(pip_install_artifact_tree, xonsh):
     wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2", skip_python=True, fatten=True)
 
 
-def test_exclude_deps(xonsh, data_folder, tmpdir):
+def test_exclude_add_deps(xonsh, data_folder, tmpdir):
     with tmpdir.as_cwd():
         conda_pkg = os.path.join(data_folder, "test-deps-0.0.1-py_0.tar.bz2")
         wheel = artifact_to_wheel(conda_pkg)
@@ -158,3 +158,9 @@ def test_exclude_deps(xonsh, data_folder, tmpdir):
 
         wheel = artifact_to_wheel(conda_pkg, exclude_deps=["opencv"])
         assert "opencv" not in wheel.artifact_info.run_requirements
+
+        wheel = artifact_to_wheel(
+            conda_pkg, exclude_deps=["opencv"], add_deps=["opencv-python"]
+        )
+        assert "opencv" not in wheel.artifact_info.run_requirements
+        assert "opencv-python" in wheel.artifact_info.run_requirements

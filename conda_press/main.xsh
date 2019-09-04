@@ -30,6 +30,8 @@ def main(args=None):
                         "this will be the last wheel listed.")
     p.add_argument("--exclude-deps", dest="exclude_deps", default=None, nargs="+",
                    help="Exclude dependencies from conda package.")
+    p.add_argument("--add-deps", dest="add_deps", default=[], nargs="+",
+                   help="Add dependencies to the wheel.")
     ns = p.parse_args(args=args)
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
@@ -48,14 +50,16 @@ def main(args=None):
                 skip_python=ns.skip_python,
                 strip_symbols=ns.strip_symbols,
                 channels=channels,
-                exclude_deps=ns.exclude_deps
+                exclude_deps=ns.exclude_deps,
+                add_deps=ns.add_deps
             )
             if ns.fatten:
                 fatten_from_seen(seen, output=ns.output)
         else:
             print(f'Converting {fname} to wheel')
             artifact_to_wheel(fname, strip_symbols=ns.strip_symbols,
-                              exclude_deps=ns.exclude_deps)
+                              exclude_deps=ns.exclude_deps,
+                              add_deps=ns.add_deps)
 
 
 if __name__ == "__main__":
