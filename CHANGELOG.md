@@ -4,7 +4,26 @@ conda-press Change Log
 
 
 
+
 <!-- current developments -->
+
+## v0.0.3
+**Added:**
+
+* Add plugin ``pytest-azurepipelines`` to show test reports on Azure Pipelines
+* Add option `--add-deps` to be able to add new dependencies to the wheel.
+* Add option `--exclude-deps`. With this option the user will be able to exclude dependencies from the artifacts.
+
+**Fixed:**
+
+* Removed unused imports
+
+**Authors:**
+
+* Anthony Scopatz
+* Marcelo Duarte Trevisani
+
+
 
 ## v0.0.2
 **Added:**
