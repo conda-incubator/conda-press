@@ -30,7 +30,7 @@ def main(args=None):
                         "this will be the last wheel listed.")
     p.add_argument("--exclude-deps", dest="exclude_deps", default=None, nargs="+",
                    help="Exclude dependencies from conda package.")
-    p.add_argument("--add-deps", dest="add_deps", default=[], nargs="+",
+    p.add_argument("--add-deps", dest="add_deps", default=None, nargs="+",
                    help="Add dependencies to the wheel.")
     ns = p.parse_args(args=args)
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
