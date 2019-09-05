@@ -10,7 +10,7 @@
   github: jschueller
 - name: Anthony Scopatz
   email: scopatz@gmail.com
-  num_commits: 115
+  num_commits: 123
   first_commit: 2019-04-05 16:53:05
 - name: Isaiah Norton
   email: isaiah.norton@gmail.com
@@ -20,4 +20,7 @@
 - name: Marcelo Duarte Trevisani
   email: marceloduartetrevisani@gmail.com
   alternate_emails:
-    - marcelotrevisani@users.noreply.github.com
+  - marcelotrevisani@users.noreply.github.com
+  num_commits: 15
+  first_commit: 2019-09-04 04:28:53
+  github: marcelotrevisani
