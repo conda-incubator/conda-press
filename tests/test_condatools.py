@@ -164,3 +164,9 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         )
         assert "opencv" not in wheel.artifact_info.run_requirements
         assert "opencv-python" in wheel.artifact_info.run_requirements
+
+        wheel = artifact_to_wheel(
+            conda_pkg, add_deps=["six"]
+        )
+        assert "opencv" in wheel.artifact_info.run_requirements
+        assert "six" in wheel.artifact_info.run_requirements
