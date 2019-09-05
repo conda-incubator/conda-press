@@ -398,7 +398,7 @@ def find_link_target(source, info=None, channels=None, deps_cache=None,
 class ArtifactInfo:
     """Representation of artifact info/ directory."""
 
-    def __init__(self, artifactdir, exclude_deps=None):
+    def __init__(self, artifactdir, exclude_deps=None, add_deps=None):
         self._artifactdir = None
         self._python_tag = None
         self._abi_tag = None
@@ -414,6 +414,7 @@ class ArtifactInfo:
         self.files = None
         self.artifactdir = artifactdir
         self.exclude_deps = exclude_deps
+        self.add_deps = add_deps
 
     def clean(self):
         rmtree(self._artifactdir, force=True)
@@ -425,6 +426,14 @@ class ArtifactInfo:
     @exclude_deps.setter
     def exclude_deps(self, list_deps):
         self._exclude_deps = list_deps if list_deps else []
+
+    @property
+    def add_deps(self):
+        return self._add_deps
+
+    @add_deps.setter
+    def add_deps(self, list_deps):
+        self._add_deps = list_deps if list_deps else []
 
     @property
     def artifactdir(self):
@@ -506,7 +515,8 @@ class ArtifactInfo:
         else:
             reqs = self.meta_yaml.get('requirements', {}).get('run', ())
 
-        rr = dict([x.partition(' ')[::2] for x in reqs if x not in self.exclude_deps])
+        reqs = set(reqs).union(set(self.add_deps)).difference(set(self.exclude_deps))
+        rr = dict([x.partition(' ')[::2] for x in reqs])
         self._run_requirements = rr
         return self._run_requirements
 
@@ -615,7 +625,7 @@ class ArtifactInfo:
 
     @classmethod
     def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True,
-                     skip_python=False, exclude_deps=None):
+                     skip_python=False, exclude_deps=None, add_deps=None):
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -629,7 +639,7 @@ class ArtifactInfo:
         tmpdir = tempfile.mkdtemp(prefix=canonical_name)
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
-        info = cls(tmpdir, exclude_deps=exclude_deps)
+        info = cls(tmpdir, exclude_deps=exclude_deps, add_deps=add_deps)
         if skip_python and "python" in info.run_requirements:
             return info
         if strip_symbols:
@@ -678,7 +688,7 @@ class ArtifactInfo:
 
 
 def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
-                      skip_python=False, exclude_deps=None):
+                      skip_python=False, exclude_deps=None, add_deps=None):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
@@ -687,9 +697,14 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
         return
     if isinstance(path, ArtifactInfo):
         path.exclude_deps = exclude_deps
+        path.add_deps = add_deps
         info = path
     else:
-        info = ArtifactInfo.from_tarball(path, strip_symbols=strip_symbols, exclude_deps=exclude_deps)
+        info = ArtifactInfo.from_tarball(
+            path, strip_symbols=strip_symbols,
+            exclude_deps=exclude_deps,
+            add_deps=add_deps
+        )
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
         if checker(info=info):
@@ -719,9 +734,11 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
     return wheel
 
 
-def package_to_wheel(ref_or_rec, channels=None, subdir=None,
-                          include_requirements=True, strip_symbols=True,
-                          skip_python=False, _top=True, exclude_deps=None):
+def package_to_wheel(
+        ref_or_rec, channels=None, subdir=None, include_requirements=True,
+        strip_symbols=True,skip_python=False, _top=True, exclude_deps=None,
+        add_deps=None
+):
     """Converts a package ref spec or a PackageRecord into a wheel."""
     path = download_artifact(ref_or_rec, channels=channels, subdir=subdir)
     if path is None:
@@ -730,7 +747,8 @@ def package_to_wheel(ref_or_rec, channels=None, subdir=None,
     info = ArtifactInfo.from_tarball(
         path, strip_symbols=strip_symbols,
         skip_python=skip_python,
-        exclude_deps=exclude_deps
+        exclude_deps=exclude_deps,
+        add_deps=add_deps
     )
     if skip_python and not _top and "python" in info.run_requirements:
         return None
@@ -739,18 +757,18 @@ def package_to_wheel(ref_or_rec, channels=None, subdir=None,
         include_requirements=include_requirements,
         strip_symbols=strip_symbols,
         skip_python=skip_python,
-        exclude_deps=exclude_deps
+        exclude_deps=exclude_deps,
+        add_deps=add_deps
     )
     wheel._top = _top
     return wheel
 
 
-def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=None,
-                                           seen=None, include_requirements=True,
-                                           skip_python=False,
-                                           strip_symbols=True,
-                                           exclude_deps=None
-                                           ):
+def artifact_ref_dependency_tree_to_wheels(
+        artifact_ref, channels=None, subdir=None, seen=None,
+        include_requirements=True, skip_python=False, strip_symbols=True,
+        exclude_deps=None, add_deps=None
+):
     """Converts all artifact dependencies to wheels for a ref spec string"""
     seen = {} if seen is None else seen
     top_name = name_from_ref(artifact_ref)
@@ -805,7 +823,8 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, channels=None, subdir=N
             include_requirements=include_requirements,
             strip_symbols=strip_symbols,
             _top=is_top,
-            exclude_deps=exclude_deps
+            exclude_deps=exclude_deps,
+            add_deps=add_deps
         )
         seen[match_spec_str] = wheel
 
