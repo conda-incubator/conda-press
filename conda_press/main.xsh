@@ -28,6 +28,8 @@ def main(args=None):
     p.add_argument("-o", "--output", dest="output", default=None,
                    help="Output file name for merge/fatten. If not given, "
                         "this will be the last wheel listed.")
+    p.add_argument("--exclude-deps", dest="exclude_deps", default=None, nargs="+",
+                   help="Exclude dependencies from conda package.")
     ns = p.parse_args(args=args)
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
@@ -40,16 +42,20 @@ def main(args=None):
     for fname in ns.files:
         if "=" in fname:
             print(f'Converting {fname} tree to wheels')
-            seen = artifact_ref_dependency_tree_to_wheels(fname,
+            seen = artifact_ref_dependency_tree_to_wheels(
+                fname,
                 subdir=ns.subdir,
                 skip_python=ns.skip_python,
                 strip_symbols=ns.strip_symbols,
-                channels=channels)
+                channels=channels,
+                exclude_deps=ns.exclude_deps
+            )
             if ns.fatten:
                 fatten_from_seen(seen, output=ns.output)
         else:
             print(f'Converting {fname} to wheel')
-            artifact_to_wheel(fname, strip_symbols=ns.strip_symbols)
+            artifact_to_wheel(fname, strip_symbols=ns.strip_symbols,
+                              exclude_deps=ns.exclude_deps)
 
 
 if __name__ == "__main__":

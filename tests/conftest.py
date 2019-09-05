@@ -155,3 +155,8 @@ def xonsh(request):
         from xonsh.shell import Shell
         sess.shell = Shell(sess.execer, ctx=sess.ctx, shell_type="none")
     return sess
+
+
+@pytest.fixture
+def data_folder(request):
+    return os.path.join(os.path.dirname(request.module.__file__), "data")
