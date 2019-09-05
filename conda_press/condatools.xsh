@@ -413,7 +413,6 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
-        self._exclude_deps = []
         self.exclude_deps = exclude_deps
 
     def clean(self):
@@ -630,7 +629,7 @@ class ArtifactInfo:
         tmpdir = tempfile.mkdtemp(prefix=canonical_name)
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
-        info = cls(tmpdir, exclude_deps)
+        info = cls(tmpdir, exclude_deps=exclude_deps)
         if skip_python and "python" in info.run_requirements:
             return info
         if strip_symbols:
