@@ -14,7 +14,7 @@ steps:
     displayName: 'Conda Environment (conda-forge)'
   - script: |
       pip install --no-deps ${{ parameters.pip_flags }} .
-      pytest -sv --timeout=300 --junitxml=junit/test-results.xml
+      pytest -sv --timeout=300 --junitxml=junit/test-results.xml -n auto
     displayName: 'Tests'
 
   # Publish build results
