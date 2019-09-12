@@ -404,7 +404,7 @@ class Wheel:
             if dist in merged_dists:
                 print("Removing dependence on " + dist)
                 del lines[i]
-        content = "\n".join(lines)
+        content = "".join(lines)
         self._writestr_and_record(arcname, content)
 
     def write_metadata_from_artifact(self, include_requirements=True, skip_python=False,
@@ -738,10 +738,13 @@ def _merge_file_filter(files, distinfo):
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/METADATA",
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/top_level.txt",
     }
+    bad_arcbases = {"WHEEL", "METADATA"}
     for f in files:
         fsname, arcname = f
         arcdir, arcbase = os.path.split(arcname)
         if arcname in bad_arcnames:
+            continue
+        elif arcdir.endswith(".dist-info") and arcbase in bad_arcbases:
             continue
         filtered.append(f)
     return filtered
