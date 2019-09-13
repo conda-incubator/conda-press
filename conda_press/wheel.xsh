@@ -738,7 +738,7 @@ def _merge_file_filter(files, distinfo):
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/METADATA",
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/top_level.txt",
     }
-    bad_arcbases = {"WHEEL", "METADATA"}
+    bad_arcbases = {"WHEEL", "METADATA", "RECORD"}
     for f in files:
         fsname, arcname = f
         arcdir, arcbase = os.path.split(arcname)
