@@ -170,3 +170,7 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         )
         assert "opencv" in wheel.artifact_info.run_requirements
         assert "six" in wheel.artifact_info.run_requirements
+
+
+def test_xeus_python(pip_install_artifact_tree, xonsh):
+    wheel, test_env, sp = pip_install_artifact_tree("xeus-python=0.5.1", skip_python=True, fatten=True)
