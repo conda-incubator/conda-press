@@ -183,3 +183,7 @@ def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
 def test_get_only_deps_on_pypi():
     assert get_only_deps_on_pypi(["pytest", "NOT_PACKAGE_000"]) == {"pytest"}
     assert get_only_deps_on_pypi(["pytest", "requests"]) == {"pytest", "requests"}
+
+
+def test_xeus_python(pip_install_artifact_tree, xonsh):
+    wheel, test_env, sp = pip_install_artifact_tree("xeus-python=0.5.1", skip_python=True, fatten=True)
