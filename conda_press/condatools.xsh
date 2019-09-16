@@ -516,12 +516,10 @@ class ArtifactInfo:
         else:
             reqs = self.meta_yaml.get('requirements', {}).get('run', ())
 
-        reqs = set(reqs).union(set(self.add_deps))
+        reqs = set(reqs).union(set(self.add_deps)).difference(set(self.exclude_deps))
 
         if self._only_pypi:
             reqs = get_only_deps_on_pypi(reqs)
-
-        reqs = reqs.difference(set(self.exclude_deps))
 
         self._run_requirements = dict([x.partition(' ')[::2] for x in reqs])
         return self._run_requirements
@@ -695,16 +693,24 @@ class ArtifactInfo:
 
 
 def get_only_deps_on_pypi(list_deps):
-    """Based on a list of dependencies this function will check if those
+    """Based on a set of dependencies this function will check if those
     dependencies are on PyPi, if it is not available it will be removed.
 
-    :param set,list list_deps: List of dependencies as a string values
-    :return set: List of pakages present on PyPi
+    Attributes
+    ----------
+    list_deps: set of `str`
+        List of dependencies as a string values
+
+    Returns
+    -------
+    set
+        List of packages present on PyPi
     """
     import requests
     new_deps = set()
     for pkg in list_deps:
-        response = requests.get(f"https://pypi.python.org/pypi/{pkg.lower()}/json")
+        pkg_name_url = pkg.lower().replace("-", "_")
+        response = requests.get(f"https://pypi.python.org/pypi/{pkg_name_url}/json")
         if response.status_code == 200:
             new_deps.add(pkg)
         else:
