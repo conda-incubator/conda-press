@@ -181,7 +181,7 @@ def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
 
 
 def test_get_only_deps_on_pypi():
-    assert get_only_deps_on_pypi(["pytest", "pytest-xdist"]) == {"pytest", "pytest-xdis"}
+    assert get_only_deps_on_pypi(["pytest", "pytest-xdist"]) == {"pytest", "pytest-xdist"}
     assert get_only_deps_on_pypi(["pytest", "NOT_PACKAGE_000"]) == {"pytest"}
     assert get_only_deps_on_pypi(["pytest", "requests"]) == {"pytest", "requests"}
 
