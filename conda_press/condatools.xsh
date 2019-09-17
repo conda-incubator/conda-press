@@ -706,7 +706,6 @@ def get_only_deps_on_pypi(list_deps):
     set
         List of packages present on PyPi
     """
-    import requests
     new_deps = set()
     for pkg in list_deps:
         pkg_name_url = pkg.lower().replace("-", "_")
