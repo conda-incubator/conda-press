@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel
+from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel, ArtifactInfo
 
 
 ON_LINUX = (SYSTEM == "Linux")
@@ -170,3 +170,8 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         )
         assert "opencv" in wheel.artifact_info.run_requirements
         assert "six" in wheel.artifact_info.run_requirements
+
+
+@pytest.mark.parametrize("extension", [".tar", ".tar.gz", ".tar.bz2", ".zip"])
+def test_from_tarballs(xonsh, tmpdir, data_folder, extension):
+    ArtifactInfo.from_tarball(os.path.join(data_folder, f"test-deps-0.0.1-py_0{extension}"))
