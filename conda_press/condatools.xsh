@@ -635,8 +635,11 @@ class ArtifactInfo:
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
             canonical_name = base[:-8]
+        elif base.endswith(".tar.gz"):
+            mode = "r:gz"
+            canonical_name = base[:-7]
         elif base.endswith('.tar'):
-            mode - 'r:'
+            mode = 'r:'
             canonical_name = base[:-4]
         else:
             mode = 'r'

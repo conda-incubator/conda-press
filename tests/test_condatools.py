@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel, get_only_deps_on_pypi
+from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel, ArtifactInfo, get_only_deps_on_pypi
 
 
 ON_LINUX = (SYSTEM == "Linux")
@@ -172,6 +172,12 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         assert "six" in wheel.artifact_info.run_requirements
 
 
+
+@pytest.mark.parametrize("extension", [".tar", ".tar.gz", ".tar.bz2", ".zip"])
+def test_from_tarballs(xonsh, tmpdir, data_folder, extension):
+    ArtifactInfo.from_tarball(os.path.join(data_folder, f"test-deps-0.0.1-py_0{extension}"))
+
+    
 def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
     with tmpdir.as_cwd():
         conda_pkg = os.path.join(data_folder, "test-deps-0.0.1-py_0.tar.bz2")
