@@ -109,7 +109,7 @@ def pip_install_artifact_tree(request):
     wheels = {}
     test_env = tempfile.mkdtemp(prefix="test-env")
     def create_wheels_and_install(artifact_ref, include_requirements=True,
-                                  skip_python=False, fatten=False):
+                                  skip_python=False, fatten=False, skipped_deps=None):
         nonlocal wheels
         subdir = PLATFORM_TO_SUBDIR[sys.platform]
         seen = artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir,
@@ -117,7 +117,7 @@ def pip_install_artifact_tree(request):
             skip_python=skip_python,
         )
         if fatten:
-            wheels = fatten_from_seen(seen)
+            wheels = fatten_from_seen(seen, skipped_deps=skipped_deps)
         subprocess.run(['virtualenv', test_env], check=True)
         wheel_filenames = " ".join(reversed([w.filename for w in wheels.values()
                                              if w is not None]))

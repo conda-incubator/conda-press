@@ -177,7 +177,7 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
 def test_from_tarballs(xonsh, tmpdir, data_folder, extension):
     ArtifactInfo.from_tarball(os.path.join(data_folder, f"test-deps-0.0.1-py_0{extension}"))
 
-    
+
 def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
     with tmpdir.as_cwd():
         conda_pkg = os.path.join(data_folder, "test-deps-0.0.1-py_0.tar.bz2")
@@ -194,3 +194,10 @@ def test_get_only_deps_on_pypi():
 
 def test_xeus_python(pip_install_artifact_tree, xonsh):
     wheel, test_env, sp = pip_install_artifact_tree("xeus-python=0.5.1", skip_python=True, fatten=True)
+
+
+@skip_if_not_on_linux
+def test_pygobject(pip_install_artifact_tree, xonsh):
+    wheel, test_env, sp = pip_install_artifact_tree(
+        "pygobject=3.30.4", skip_python=True, fatten=True, skipped_deps={"gobject-introspection"},
+    )
