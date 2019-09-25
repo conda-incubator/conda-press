@@ -1,5 +1,6 @@
 $PROJECT = $GITHUB_REPO = 'conda-press'
 $GITHUB_ORG = 'regro'
+$PYPI_SIGN = False
 
 $ACTIVITIES = ['authors', 'version_bump', 'changelog',
                'tag', 'push_tag',
