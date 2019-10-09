@@ -32,6 +32,14 @@ def main(args=None):
                    help="Exclude dependencies from conda package.")
     p.add_argument("--add-deps", dest="add_deps", default=None, nargs="+",
                    help="Add dependencies to the wheel.")
+    p.add_argument(
+        "--only-pypi",
+        dest="only_pypi",
+        default=False,
+        action="store_true",
+        help="Remove dependencies which are not on PyPi when converting conda "
+            "package to Python wheel.",
+    )
     ns = p.parse_args(args=args)
     channels = tuple(ns.channels) + DEFAULT_CHANNELS
 
@@ -51,15 +59,16 @@ def main(args=None):
                 strip_symbols=ns.strip_symbols,
                 channels=channels,
                 exclude_deps=ns.exclude_deps,
-                add_deps=ns.add_deps
+                add_deps=ns.add_deps,
+                only_pypi=ns.only_pypi
             )
             if ns.fatten:
-                fatten_from_seen(seen, output=ns.output)
+                fatten_from_seen(seen, output=ns.output, skipped_deps=set(ns.exclude_deps or []))
         else:
             print(f'Converting {fname} to wheel')
             artifact_to_wheel(fname, strip_symbols=ns.strip_symbols,
                               exclude_deps=ns.exclude_deps,
-                              add_deps=ns.add_deps)
+                              add_deps=ns.add_deps, only_pypi=ns.only_pypi)
 
 
 if __name__ == "__main__":

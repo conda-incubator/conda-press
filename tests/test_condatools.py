@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel
+from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel, ArtifactInfo, get_only_deps_on_pypi
 
 
 ON_LINUX = (SYSTEM == "Linux")
@@ -170,3 +170,34 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         )
         assert "opencv" in wheel.artifact_info.run_requirements
         assert "six" in wheel.artifact_info.run_requirements
+
+
+
+@pytest.mark.parametrize("extension", [".tar", ".tar.gz", ".tar.bz2", ".zip"])
+def test_from_tarballs(xonsh, tmpdir, data_folder, extension):
+    ArtifactInfo.from_tarball(os.path.join(data_folder, f"test-deps-0.0.1-py_0{extension}"))
+
+
+def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
+    with tmpdir.as_cwd():
+        conda_pkg = os.path.join(data_folder, "test-deps-0.0.1-py_0.tar.bz2")
+        wheel = artifact_to_wheel(conda_pkg, add_deps=["pytest"], only_pypi=True)
+        assert "opencv" not in wheel.artifact_info.run_requirements
+        assert "pytest" in wheel.artifact_info.run_requirements
+
+
+def test_get_only_deps_on_pypi():
+    assert get_only_deps_on_pypi(["pytest", "pytest-xdist"]) == {"pytest", "pytest-xdist"}
+    assert get_only_deps_on_pypi(["pytest", "NOT_PACKAGE_000"]) == {"pytest"}
+    assert get_only_deps_on_pypi(["pytest", "requests"]) == {"pytest", "requests"}
+
+
+def test_xeus_python(pip_install_artifact_tree, xonsh):
+    wheel, test_env, sp = pip_install_artifact_tree("xeus-python=0.5.1", skip_python=True, fatten=True)
+
+
+@skip_if_not_on_linux
+def test_pygobject(pip_install_artifact_tree, xonsh):
+    wheel, test_env, sp = pip_install_artifact_tree(
+        "pygobject=3.30.4", skip_python=True, fatten=True, skipped_deps={"gobject-introspection"},
+    )

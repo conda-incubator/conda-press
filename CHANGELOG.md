@@ -5,7 +5,30 @@ conda-press Change Log
 
 
 
+
 <!-- current developments -->
+
+## v0.0.4
+**Added:**
+
+* `wheels.fatten_from_seen()` now has a `skipped_deps` keyword argument
+* Add new option `--only-pypi` which will remove any dependency which is not available on PyPi.
+
+**Changed:**
+
+* Fattened wheels now respect `--exclude-deps`
+
+**Fixed:**
+
+* Fix file types which might be uncompressed when using `from_tarball` method.
+* Removed `WHEEL`, `METADATA`, and `RECORD` files from fat wheels.
+
+**Authors:**
+
+* Anthony Scopatz
+* Marcelo Duarte Trevisani
+
+
 
 ## v0.0.3
 **Added:**

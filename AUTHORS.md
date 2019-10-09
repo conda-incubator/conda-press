@@ -6,5 +6,3 @@ Authors are sorted by number of commits.
 * Isaiah Norton
 * P. L. Lim
 * Julien Schueller
-
-

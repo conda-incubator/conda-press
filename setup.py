@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import ast
 
 from setuptools import setup
 
@@ -20,7 +19,7 @@ def main():
         long_description=readme,
         long_description_content_type='text/markdown',
         license='BSD',
-        version='0.0.3',
+        version='0.0.4',
         author='Anthony Scopatz',
         maintainer='Anthony Scopatz',
         author_email='scopatz@gmail.com',
