@@ -4,7 +4,6 @@ import re
 import sys
 import json
 import shutil
-import platform
 import tarfile
 import tempfile
 
@@ -14,25 +13,12 @@ from xonsh.tools import print_color
 from xonsh.lib.os import rmtree, indir
 
 from ruamel.yaml import YAML
-
 import requests
 
 from conda.api import SubdirData, Solver
 
+from conda_press.config import CACHE_DIR, DEFAULT_CHANNELS
 from conda_press.wheel import Wheel
-
-
-CACHE_DIR = os.path.join(tempfile.gettempdir(), 'artifact-cache')
-DEFAULT_CHANNELS = ('conda-forge', 'anaconda', 'main', 'r')
-SYSTEM = platform.system()
-if SYSTEM == "Linux":
-    SO_EXT = ".so"
-elif SYSTEM == "Darwin":
-    SO_EXT = ".dylib"
-elif SYSTEM == "Windows":
-    SO_EXT = ".dll"
-else:
-    SO_EXT = None
 
 
 def wheel_safe_build(build, build_string=None):
