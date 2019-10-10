@@ -691,26 +691,21 @@ def get_only_deps_on_pypi(list_deps):
     return new_deps
 
 
-def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
-                      skip_python=False, exclude_deps=None, add_deps=None,
-                      only_pypi=False):
+def artifact_to_wheel(path, config=None):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
     # unzip the artifact
     if path is None:
         return
+    if config is None:
+        config = Config()
     if isinstance(path, ArtifactInfo):
-        path.exclude_deps = exclude_deps
-        path.add_deps = add_deps
-        path._only_pypi=only_pypi
+        path.config = config
         info = path
     else:
         info = ArtifactInfo.from_tarball(
-            path, strip_symbols=strip_symbols,
-            exclude_deps=exclude_deps,
-            add_deps=add_deps,
-            only_pypi=only_pypi
+            path, config=config
         )
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
@@ -731,44 +726,33 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
         _remap_noarch_python(wheel, info)
     elif "python" in info.run_requirements:
         _remap_site_packages(wheel, info)
-        if skip_python:
+        if config.skip_python:
           info.run_requirements.pop('python')
     wheel.rewrite_python_shebang()
     wheel.rewrite_rpaths()
     wheel.rewrite_scripts_linking()
     wheel.entry_points = info.entry_points
-    wheel.write(include_requirements=include_requirements, skip_python=skip_python)
+    wheel.write(
+        include_requirements=config.include_requirements,
+        skip_python=config.skip_python
+    )
     return wheel
 
 
-def package_to_wheel(
-        ref_or_rec, channels=None, subdir=None, include_requirements=True,
-        strip_symbols=True,skip_python=False, _top=True, exclude_deps=None,
-        add_deps=None, only_pypi=False
-):
+def package_to_wheel(ref_or_rec, config=None, _top=True):
     """Converts a package ref spec or a PackageRecord into a wheel."""
-    path = download_artifact(ref_or_rec, channels=channels, subdir=subdir)
+    if config is None:
+        config = Config()
+    path = download_artifact(
+        ref_or_rec, channels=config.channels, subdir=config.subdir
+    )
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
-    info = ArtifactInfo.from_tarball(
-        path, strip_symbols=strip_symbols,
-        skip_python=skip_python,
-        exclude_deps=exclude_deps,
-        add_deps=add_deps,
-        only_pypi=only_pypi
-    )
-    if skip_python and not _top and "python" in info.run_requirements:
+    info = ArtifactInfo.from_tarball(path, config=config)
+    if config.skip_python and not _top and "python" in info.run_requirements:
         return None
-    wheel = artifact_to_wheel(
-        info,
-        include_requirements=include_requirements,
-        strip_symbols=strip_symbols,
-        skip_python=skip_python,
-        exclude_deps=exclude_deps,
-        add_deps=add_deps,
-        only_pypi=only_pypi
-    )
+    wheel = artifact_to_wheel(info, config=config)
     wheel._top = _top
     return wheel
 

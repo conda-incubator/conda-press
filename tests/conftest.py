@@ -80,7 +80,7 @@ def pip_install_artifact(request):
     def create_wheel_and_install(artifact_ref, include_requirements=True):
         nonlocal wheel
         artifact_path = download_artifact(artifact_ref)
-        wheel = artifact_to_wheel(artifact_path, include_requirements=include_requirements)
+        wheel = artifact_to_wheel(artifact_path, Config(include_requirements=include_requirements))
         subprocess.run(['virtualenv', test_env], check=True)
         if sys.platform.startswith('win'):
             site_packages = os.path.join(test_env, 'Lib', 'site-packages')
