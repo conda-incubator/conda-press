@@ -10,8 +10,10 @@ def test_fields(tmpdir):
         skip_python=True,
         strip_symbols=False,
         merge=True,
-        exclude_deps=["EXCLUDE1"],
-        add_deps=["ADD1"],
+        exclude_deps={"EXCLUDE1"},
+        add_deps={"ADD1"},
+        only_pypi=True,
+        include_requirements=False,
     )
     assert (
         config_press.channels.sort()
@@ -23,5 +25,7 @@ def test_fields(tmpdir):
     assert config_press.skip_python
     assert not config_press.strip_symbols
     assert config_press.merge
-    assert config_press.exclude_deps == ["EXCLUDE1"]
-    assert config_press.add_deps == ["ADD1"]
+    assert config_press.exclude_deps == {"EXCLUDE1"}
+    assert config_press.add_deps == {"ADD1"}
+    assert config_press.only_pypi
+    assert not config_press.include_requirements

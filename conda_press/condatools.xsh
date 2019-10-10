@@ -17,7 +17,7 @@ import requests
 
 from conda.api import SubdirData, Solver
 
-from conda_press.config import CACHE_DIR, DEFAULT_CHANNELS
+from conda_press.config import CACHE_DIR, DEFAULT_CHANNELS, Config
 from conda_press.wheel import Wheel
 
 
@@ -380,18 +380,16 @@ def find_link_target(source, info=None, channels=None, deps_cache=None,
         rtn = tgtfile
     return tgtfile
 
-
 class ArtifactInfo:
     """Representation of artifact info/ directory."""
 
-    def __init__(self, artifactdir, exclude_deps=None, add_deps=None, only_pypi=False):
+    def __init__(self, artifactdir, config=None):
         self._artifactdir = None
         self._python_tag = None
         self._abi_tag = None
         self._platform_tag = None
         self._run_requirements = None
         self._noarch = None
-        self._only_pypi = only_pypi
         self._entry_points = None
         self.index_json = None
         self.link_json = None
@@ -400,27 +398,14 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
-        self.exclude_deps = exclude_deps
-        self.add_deps = add_deps
+        self._config = config if config else Config()
 
     def clean(self):
         rmtree(self._artifactdir, force=True)
 
     @property
-    def exclude_deps(self):
-        return self._exclude_deps
-
-    @exclude_deps.setter
-    def exclude_deps(self, list_deps):
-        self._exclude_deps = list_deps if list_deps else []
-
-    @property
-    def add_deps(self):
-        return self._add_deps
-
-    @add_deps.setter
-    def add_deps(self, list_deps):
-        self._add_deps = list_deps if list_deps else []
+    def config(self):
+        return self._config
 
     @property
     def artifactdir(self):
