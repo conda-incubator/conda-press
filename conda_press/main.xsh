@@ -40,13 +40,15 @@ def main(args=None):
         help="Remove dependencies which are not on PyPi when converting conda "
             "package to Python wheel.",
     )
+    p.add_argument(
+        "--config",
+        dest="config_file",
+        default=None,
+        nargs=1,
+        help="Receives an yaml configuration file which will set the options for conda-press.\n"
+             "This option has high priority over the others to configure conda-press.",
+    )
     ns = p.parse_args(args=args)
-
-    if ns.merge:
-        wheels = {f: Wheel.from_file(f) for f in ns.files}
-        output = ns.files[-1] if ns.output is None else ns.output
-        merge(wheels, output=output)
-        return
 
     config = Config(
         output=ns.output,
@@ -60,6 +62,16 @@ def main(args=None):
         skip_python=ns.skip_python,
         only_pypi=ns.only_pypi,
     )
+
+    if ns.config_file:
+        populate_config_by_yaml(config)
+
+    if ns.merge:
+        wheels = {f: Wheel.from_file(f) for f in ns.files}
+        output = ns.files[-1] if ns.output is None else ns.output
+        merge(wheels, output=output)
+        return
+
 
     for fname in ns.files:
         if "=" in fname:

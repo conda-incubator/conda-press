@@ -67,3 +67,11 @@ class Config:
             Returns a set with the dependencies.
         """
         return set(list_deps).union(self.add_deps).difference(self.exclude_deps)
+
+
+def populate_config_by_yaml(yaml_path, config):
+    from ruamel.yaml import YAML
+
+    with open(yaml_path, "r") as config_file:
+        yaml_file = YAML(typ="safe").load(config_file)
+

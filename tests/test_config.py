@@ -1,6 +1,8 @@
 import pytest
+from ruamel import yaml
 
 from conda_press.config import Config
+
 
 @pytest.fixture
 def config_obj(tmpdir):
@@ -21,8 +23,8 @@ def config_obj(tmpdir):
 
 def test_fields(config_obj):
     assert (
-        config_obj.channels.sort()
-        == ["FOO-CHANNEL", "conda-forge", "anaconda", "main", "r"].sort()
+            config_obj.channels.sort()
+            == ["FOO-CHANNEL", "conda-forge", "anaconda", "main", "r"].sort()
     )
     assert config_obj.subdir == ("SUBDIR", "noarch")
     assert config_obj.output == "OUTPUT"
@@ -41,3 +43,21 @@ def test_clean_deps(config_obj):
     config_obj.exclude_deps = {"DEP2", "DEP4"}
     all_deps = ["DEP0", "DEP1", "DEP2", "DEP5"]
     assert config_obj.clean_deps(all_deps) == {"DEP0", "DEP1", "DEP3", "DEP5"}
+
+
+def test_populate_config_by_yaml(tmpdir):
+    yaml_path = tmpdir.join("TEST.yaml")
+    yaml_path.write(yaml.dump({
+        "subdir": "SUBDIR",
+        "output": "OUTPUT",
+        "channels": ["FOO-CHANNEL", "CHANNEL2"],
+        "fatten": True,
+        "skip_python": True,
+        "strip_symbols": False,
+        "merge": True,
+        "exclude_deps": ["EXCLUDE1", "EXCLUDE2"],
+        "add_deps": ["ADD1", "ADD2"],
+        "only_pypi": True,
+        "include_requirements": False,
+    }))
+
