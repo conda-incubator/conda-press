@@ -323,7 +323,7 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
             if depfile is None:
                 print(f"skipping {dep_ref}")
                 continue
-            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False, strip_symbols=strip_symbols)
+            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False, config=Config(strip_symbols=strip_symbols))
             deps_cache[dep_ref] = dep
         tgtdep = os.path.join(dep.artifactdir, relative_source)
         print(f"Searching {dep.artifactdir} for link target of {relative_source} -> {tgtdep}")
@@ -380,6 +380,7 @@ def find_link_target(source, info=None, channels=None, deps_cache=None,
         rtn = tgtfile
     return tgtfile
 
+
 class ArtifactInfo:
     """Representation of artifact info/ directory."""
 
@@ -404,8 +405,12 @@ class ArtifactInfo:
         rmtree(self._artifactdir, force=True)
 
     @property
-    def config(self):
+    def config(self) -> Config:
         return self._config
+
+    @config.setter
+    def config(self, config_obj: Config):
+        self._config = config_obj
 
     @property
     def artifactdir(self):
@@ -487,9 +492,9 @@ class ArtifactInfo:
         else:
             reqs = self.meta_yaml.get('requirements', {}).get('run', ())
 
-        reqs = set(reqs).union(set(self.add_deps)).difference(set(self.exclude_deps))
+        reqs = self.config.clean_deps(reqs)
 
-        if self._only_pypi:
+        if self.config.only_pypi:
             reqs = get_only_deps_on_pypi(reqs)
 
         self._run_requirements = dict([x.partition(' ')[::2] for x in reqs])
@@ -599,9 +604,9 @@ class ArtifactInfo:
         return self.index_json["subdir"]
 
     @classmethod
-    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True,
-                     skip_python=False, exclude_deps=None, add_deps=None,
-                     only_pypi=False):
+    def from_tarball(cls, path, config=None, replace_symlinks=True):
+        if config is None:
+            config = Config()
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
@@ -618,13 +623,13 @@ class ArtifactInfo:
         tmpdir = tempfile.mkdtemp(prefix=canonical_name)
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
-        info = cls(tmpdir, exclude_deps=exclude_deps, add_deps=add_deps, only_pypi=only_pypi)
-        if skip_python and "python" in info.run_requirements:
+        info = cls(tmpdir, config)
+        if config.skip_python and "python" in info.run_requirements:
             return info
-        if strip_symbols:
+        if config.strip_symbols:
             info.strip_symbols()
         if replace_symlinks:
-            info.replace_symlinks(strip_symbols=strip_symbols)
+            info.replace_symlinks(strip_symbols=config.strip_symbols)
         return info
 
     def strip_symbols(self):
@@ -639,7 +644,7 @@ class ArtifactInfo:
             with ${...}.swap(RAISE_SUBPROC_ERROR=True):
                 ![strip --strip-all --preserve-dates --enable-deterministic-archives @(absname)]
 
-    def replace_symlinks(self, strip_symbols=True):
+    def replace_symlinks(self, strip_symbols=self.config.strip_symbols):
         # this is needed because of https://github.com/pypa/pip/issues/5919
         # this has to walk the package deps in some cases.
         for f in self.files:
@@ -757,22 +762,18 @@ def package_to_wheel(ref_or_rec, config=None, _top=True):
     return wheel
 
 
-def artifact_ref_dependency_tree_to_wheels(
-        artifact_ref, channels=None, subdir=None, seen=None,
-        include_requirements=True, skip_python=False, strip_symbols=True,
-        exclude_deps=None, add_deps=None, only_pypi=False
-):
+def artifact_ref_dependency_tree_to_wheels(artifact_ref, config=None, seen=None):
     """Converts all artifact dependencies to wheels for a ref spec string"""
+    if config is None:
+        config = Config()
     seen = {} if seen is None else seen
     top_name = name_from_ref(artifact_ref)
     top_found = False
 
-    channels = DEFAULT_CHANNELS if channels is None else channels
-    subdirs = (subdir, "noarch") if subdir else ("noarch",)
-    solver = Solver("<none>", channels, subdirs=subdirs, specs_to_add=(artifact_ref,))
+    solver = Solver("<none>", config.channels, subdirs=config.subdirs, specs_to_add=(artifact_ref,))
     package_recs = solver.solve_final_state()
 
-    if skip_python:
+    if config.skip_python:
         names_recs = {pr.name: pr for pr in package_recs}
         top_package_rec = names_recs[top_name]
         python_deps = set()
@@ -802,7 +803,7 @@ def artifact_ref_dependency_tree_to_wheels(
             print_color("Have already seen {YELLOW}" + match_spec_str + "{NO_COLOR}")
             continue
 
-        if skip_python and not is_top and package_rec.name in python_deps:
+        if config.skip_python and not is_top and package_rec.name in python_deps:
             print_color("Skipping Python package dependency {YELLOW}" + match_spec_str + "{NO_COLOR}")
             seen[match_spec_str] = None
             continue
@@ -810,15 +811,8 @@ def artifact_ref_dependency_tree_to_wheels(
         print_color("Building {YELLOW}" + match_spec_str + "{NO_COLOR} as dependency of {GREEN}" + artifact_ref + "{NO_COLOR}")
         wheel = package_to_wheel(
             package_rec,
-            channels=channels,
-            subdir=subdir,
-            skip_python=skip_python,
-            include_requirements=include_requirements,
-            strip_symbols=strip_symbols,
             _top=is_top,
-            exclude_deps=exclude_deps,
-            add_deps=add_deps,
-            only_pypi=only_pypi
+            config=config
         )
         seen[match_spec_str] = wheel
 

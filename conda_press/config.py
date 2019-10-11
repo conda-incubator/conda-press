@@ -1,7 +1,7 @@
 import os
 import platform
 import tempfile
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Set
 
@@ -20,7 +20,8 @@ else:
 
 @dataclass(init=True, repr=True, eq=True, order=False)
 class Config:
-    subdir: (str, Path) = field(default=None)
+    subdir: (str, tuple)
+    _subdir: tuple = field(init=False, repr=False)
     output: (str, Path) = field(default=None)
     _channels: List[str] = field(init=False, repr=False)
     channels: List[str] = field(default=None)
@@ -30,7 +31,7 @@ class Config:
     strip_symbols: bool = True
     fatten: bool = False
     merge: bool = False
-    only_pypi : bool = False
+    only_pypi: bool = False
     include_requirements: bool = True
 
     @property
@@ -40,3 +41,16 @@ class Config:
     @channels.setter
     def channels(self, list_channels: List[str]):
         self._channels = list_channels
+
+    @property
+    def subdir(self) -> tuple:
+        return self._subdir + ("noarch",)
+
+    @subdir.setter
+    def subdir(self, new_subdir: (tuple, str)):
+        if isinstance(new_subdir, str):
+            new_subdir = (new_subdir,)
+        self._subdir = new_subdir
+
+    def clean_deps(self, list_deps):
+        return set(list_deps).union(self.add_deps).difference(self.exclude_deps)

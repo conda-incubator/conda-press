@@ -7,8 +7,8 @@ import subprocess
 
 import pytest
 
-from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel, ArtifactInfo, get_only_deps_on_pypi
-from conda_press.config import Config
+from conda_press.condatools import artifact_to_wheel, ArtifactInfo, get_only_deps_on_pypi
+from conda_press.config import Config, SYSTEM, SO_EXT
 
 ON_LINUX = (SYSTEM == "Linux")
 ON_WINDOWS = (SYSTEM == "Windows")
@@ -166,7 +166,7 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         assert "opencv-python" in wheel.artifact_info.run_requirements
 
         config = Config(add_deps={"six"})
-        wheel = artifact_to_wheel(conda_pkg, config)
+        wheel = artifact_to_wheel(conda_pkg, config=config)
         assert "opencv" in wheel.artifact_info.run_requirements
         assert "six" in wheel.artifact_info.run_requirements
 
