@@ -1,10 +1,12 @@
+import pytest
+
 from conda_press.config import Config
 
-
-def test_fields(tmpdir):
-    config_press = Config(
-        subdir=str(tmpdir),
-        output=str(tmpdir),
+@pytest.fixture
+def config_obj(tmpdir):
+    return Config(
+        subdir="SUBDIR",
+        output="OUTPUT",
         channels=["FOO-CHANNEL", "CHANNEL2"],
         fatten=True,
         skip_python=True,
@@ -15,17 +17,27 @@ def test_fields(tmpdir):
         only_pypi=True,
         include_requirements=False,
     )
+
+
+def test_fields(config_obj):
     assert (
-        config_press.channels.sort()
+        config_obj.channels.sort()
         == ["FOO-CHANNEL", "conda-forge", "anaconda", "main", "r"].sort()
     )
-    assert config_press.subdir == (str(tmpdir), "noarch")
-    assert config_press.output == str(tmpdir)
-    assert config_press.fatten
-    assert config_press.skip_python
-    assert not config_press.strip_symbols
-    assert config_press.merge
-    assert config_press.exclude_deps == {"EXCLUDE1", "EXCLUDE2"}
-    assert config_press.add_deps == {"ADD1", "ADD2"}
-    assert config_press.only_pypi
-    assert not config_press.include_requirements
+    assert config_obj.subdir == ("SUBDIR", "noarch")
+    assert config_obj.output == "OUTPUT"
+    assert config_obj.fatten
+    assert config_obj.skip_python
+    assert not config_obj.strip_symbols
+    assert config_obj.merge
+    assert config_obj.exclude_deps == {"EXCLUDE1", "EXCLUDE2"}
+    assert config_obj.add_deps == {"ADD1", "ADD2"}
+    assert config_obj.only_pypi
+    assert not config_obj.include_requirements
+
+
+def test_clean_deps(config_obj):
+    config_obj.add_deps = {"DEP1", "DEP2", "DEP3", "DEP4"}
+    config_obj.exclude_deps = {"DEP2", "DEP4"}
+    all_deps = ["DEP0", "DEP1", "DEP2", "DEP5"]
+    assert config_obj.clean_deps(all_deps) == {"DEP0", "DEP1", "DEP3", "DEP5"}

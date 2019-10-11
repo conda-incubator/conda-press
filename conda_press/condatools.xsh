@@ -644,9 +644,11 @@ class ArtifactInfo:
             with ${...}.swap(RAISE_SUBPROC_ERROR=True):
                 ![strip --strip-all --preserve-dates --enable-deterministic-archives @(absname)]
 
-    def replace_symlinks(self, strip_symbols=self.config.strip_symbols):
+    def replace_symlinks(self, strip_symbols=None):
         # this is needed because of https://github.com/pypa/pip/issues/5919
         # this has to walk the package deps in some cases.
+        if strip_symbols is None:
+            strip_symbols = self.config.strip_symbols
         for f in self.files:
             absname = os.path.join(self.artifactdir, f)
             if not os.path.islink(absname):
@@ -770,7 +772,7 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, config=None, seen=None)
     top_name = name_from_ref(artifact_ref)
     top_found = False
 
-    solver = Solver("<none>", config.channels, subdirs=config.subdirs, specs_to_add=(artifact_ref,))
+    solver = Solver("<none>", config.channels, subdirs=config.subdir, specs_to_add=(artifact_ref,))
     package_recs = solver.solve_final_state()
 
     if config.skip_python:
