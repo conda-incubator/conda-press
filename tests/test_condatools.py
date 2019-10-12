@@ -7,8 +7,8 @@ import subprocess
 
 import pytest
 
-from conda_press.condatools import SYSTEM, SO_EXT, artifact_to_wheel, ArtifactInfo, get_only_deps_on_pypi
-
+from conda_press.condatools import artifact_to_wheel, ArtifactInfo, get_only_deps_on_pypi
+from conda_press.config import Config, SYSTEM, SO_EXT
 
 ON_LINUX = (SYSTEM == "Linux")
 ON_WINDOWS = (SYSTEM == "Windows")
@@ -156,18 +156,17 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
         wheel = artifact_to_wheel(conda_pkg)
         assert "opencv" in wheel.artifact_info.run_requirements
 
-        wheel = artifact_to_wheel(conda_pkg, exclude_deps=["opencv"])
+        config = Config(exclude_deps={"opencv"})
+        wheel = artifact_to_wheel(conda_pkg, config=config)
         assert "opencv" not in wheel.artifact_info.run_requirements
 
-        wheel = artifact_to_wheel(
-            conda_pkg, exclude_deps=["opencv"], add_deps=["opencv-python"]
-        )
+        config.add_deps = {"opencv-python"}
+        wheel = artifact_to_wheel(conda_pkg, config=config)
         assert "opencv" not in wheel.artifact_info.run_requirements
         assert "opencv-python" in wheel.artifact_info.run_requirements
 
-        wheel = artifact_to_wheel(
-            conda_pkg, add_deps=["six"]
-        )
+        config = Config(add_deps={"six"})
+        wheel = artifact_to_wheel(conda_pkg, config=config)
         assert "opencv" in wheel.artifact_info.run_requirements
         assert "six" in wheel.artifact_info.run_requirements
 
@@ -181,7 +180,9 @@ def test_from_tarballs(xonsh, tmpdir, data_folder, extension):
 def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
     with tmpdir.as_cwd():
         conda_pkg = os.path.join(data_folder, "test-deps-0.0.1-py_0.tar.bz2")
-        wheel = artifact_to_wheel(conda_pkg, add_deps=["pytest"], only_pypi=True)
+        wheel = artifact_to_wheel(
+            conda_pkg, Config(add_deps={"pytest"}, only_pypi=True)
+        )
         assert "opencv" not in wheel.artifact_info.run_requirements
         assert "pytest" in wheel.artifact_info.run_requirements
 
