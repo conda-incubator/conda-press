@@ -1,7 +1,7 @@
 """CLI entry point for conda-press"""
 from argparse import ArgumentParser
 
-from conda_press.config import Config
+from conda_press.config import Config, get_config_by_yaml
 from conda_press.wheel import Wheel, merge, fatten_from_seen
 from conda_press.condatools import (
     artifact_to_wheel,
@@ -64,14 +64,13 @@ def main(args=None):
     )
 
     if ns.config_file:
-        populate_config_by_yaml(config)
+        get_config_by_yaml(ns.config_file, config)
 
     if ns.merge:
         wheels = {f: Wheel.from_file(f) for f in ns.files}
         output = ns.files[-1] if ns.output is None else ns.output
         merge(wheels, output=output)
         return
-
 
     for fname in ns.files:
         if "=" in fname:

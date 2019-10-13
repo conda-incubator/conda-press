@@ -1,7 +1,7 @@
 import pytest
 from ruamel import yaml
 
-from conda_press.config import Config
+from conda_press.config import Config, get_config_by_yaml
 
 
 @pytest.fixture
@@ -23,8 +23,8 @@ def config_obj(tmpdir):
 
 def test_fields(config_obj):
     assert (
-            config_obj.channels.sort()
-            == ["FOO-CHANNEL", "conda-forge", "anaconda", "main", "r"].sort()
+        config_obj.channels.sort()
+        == ["FOO-CHANNEL", "conda-forge", "anaconda", "main", "r"].sort()
     )
     assert config_obj.subdir == ("SUBDIR", "noarch")
     assert config_obj.output == "OUTPUT"
@@ -47,7 +47,7 @@ def test_clean_deps(config_obj):
 
 def test_populate_config_by_yaml(tmpdir):
     yaml_path = tmpdir.join("TEST.yaml")
-    yaml_path.write(yaml.dump({
+    config_content = {
         "subdir": "SUBDIR",
         "output": "OUTPUT",
         "channels": ["FOO-CHANNEL", "CHANNEL2"],
@@ -59,5 +59,6 @@ def test_populate_config_by_yaml(tmpdir):
         "add_deps": ["ADD1", "ADD2"],
         "only_pypi": True,
         "include_requirements": False,
-    }))
-
+    }
+    yaml_path.write(yaml.dump(config_content))
+    assert get_config_by_yaml(str(yaml_path))
