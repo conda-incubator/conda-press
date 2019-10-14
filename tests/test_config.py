@@ -61,4 +61,4 @@ def test_populate_config_by_yaml(tmpdir):
         "include_requirements": False,
     }
     yaml_path.write(yaml.dump(config_content))
-    assert get_config_by_yaml(str(yaml_path))
+    assert get_config_by_yaml(str(yaml_path)) == config_content
