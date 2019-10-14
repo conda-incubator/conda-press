@@ -125,7 +125,7 @@ def get_config_by_yaml(yaml_path, config=None):
         return yaml_var
 
     config.add_deps = convert_to_set(yaml_attr("add_deps"))
-    config.add_deps = convert_to_set(yaml_attr("add_deps"))
+    config.exclude_deps = convert_to_set(yaml_attr("exclude_deps"))
     config.only_pypi = yaml_attr("only_pypi")
     config.include_requirements = yaml_attr("include_requirements")
     return config

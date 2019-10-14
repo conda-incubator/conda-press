@@ -1,7 +1,7 @@
 import pytest
 from ruamel import yaml
 
-from conda_press.config import Config, get_config_by_yaml
+from conda_press.config import Config, get_config_by_yaml, DEFAULT_CHANNELS
 
 
 @pytest.fixture
@@ -61,4 +61,18 @@ def test_populate_config_by_yaml(tmpdir):
         "include_requirements": False,
     }
     yaml_path.write(yaml.dump(config_content))
-    assert get_config_by_yaml(str(yaml_path)) == config_content
+    config_read = get_config_by_yaml(str(yaml_path))
+    assert config_read.subdir == (config_content["subdir"], "noarch")
+    assert config_read.output == config_content["output"]
+    assert sorted(config_read.channels) == sorted(config_content["channels"] + list(DEFAULT_CHANNELS))
+    assert config_read.fatten == config_content["fatten"]
+    assert config_read.skip_python == config_content["skip_python"]
+    assert config_read.strip_symbols == config_content["strip_symbols"]
+    assert config_read.merge == config_content["merge"]
+    assert config_read.exclude_deps == set(config_content["exclude_deps"])
+    assert config_read.add_deps == set(config_content["add_deps"])
+    assert config_read.only_pypi == config_content["only_pypi"]
+    assert config_read.include_requirements == config_content["include_requirements"]
+
+
+
