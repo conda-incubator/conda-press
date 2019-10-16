@@ -1,8 +1,8 @@
 import os
 import platform
 import tempfile
-from dataclasses import dataclass, field, asdict
-from typing import Union, List, Set, Tuple
+from dataclasses import asdict, dataclass, field
+from typing import List, Set, Union
 
 CACHE_DIR = os.path.join(tempfile.gettempdir(), "artifact-cache")
 DEFAULT_CHANNELS = ("conda-forge", "anaconda", "main", "r")
@@ -19,11 +19,9 @@ else:
 
 @dataclass(init=True, repr=True, eq=True, order=False)
 class Config:
-    subdir: Union[str, Tuple[str, ...]]
-    channels: List[str]
+    subdir: Union[str, List[str]] = field(default_factory=list)
+    channels: List[str] = field(default_factory=list)
     output: str = field(default=None)
-    _subdir: Tuple[str, ...] = field(init=False, repr=False)
-    _channels: List[str] = field(init=False, repr=False, default_factory=list)
     exclude_deps: Set[str] = field(default_factory=set)
     add_deps: Set[str] = field(default_factory=set)
     skip_python: bool = False
@@ -33,24 +31,13 @@ class Config:
     only_pypi: bool = False
     include_requirements: bool = True
 
-    @property
-    def channels(self) -> List[str]:
-        return self._channels + list(DEFAULT_CHANNELS)
+    def get_all_channels(self):
+        return self.channels + list(DEFAULT_CHANNELS)
 
-    @channels.setter
-    def channels(self, list_channels: List[str]):
-        self._channels = list_channels
-
-    @property
-    def subdir(self) -> Tuple[str, ...]:
-        return self._subdir + ("noarch",)
-
-    @subdir.setter
-    def subdir(self, new_subdir: Union[Tuple[str, ...], str]):
-        if isinstance(new_subdir, str):
-            self._subdir = (new_subdir,)
-        else:
-            self._subdir = new_subdir
+    def get_all_subdir(self):
+        if isinstance(self.subdir, str):
+            return [self.subdir, "noarch"]
+        return self.subdir + ["noarch"]
 
     def clean_deps(self, list_deps: Union[Set[str], List[str]]) -> Set[str]:
         """This method is responsible to remove the excluded dependencies and
@@ -95,6 +82,9 @@ def get_config_by_yaml(yaml_path, config=None):
     with open(yaml_path, "r") as config_file:
         yaml = YAML(typ="safe").load(config_file)
 
+    if "conda_press" in yaml:
+        yaml = yaml["conda_press"]
+
     def convert_to_list(yaml_var):
         if isinstance(yaml_var, str):
             return [yaml_var]
@@ -105,11 +95,7 @@ def get_config_by_yaml(yaml_path, config=None):
             return yaml.get(attr)
         return asdict(config)[attr]
 
-    if isinstance(yaml_attr("subdir"), list):
-        config.subdir = tuple(yaml.subdir)
-    else:
-        config.subdir = yaml_attr("subdir")
-
+    config.subdir = yaml_attr("subdir")
     config.output = yaml_attr("output")
     config.channels = convert_to_list(yaml_attr("channels"))
     config.fatten = yaml_attr("fatten")
