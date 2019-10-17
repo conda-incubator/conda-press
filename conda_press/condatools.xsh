@@ -751,7 +751,7 @@ def package_to_wheel(ref_or_rec, config=None, _top=True):
     if config is None:
         config = Config()
     path = download_artifact(
-        ref_or_rec, channels=config.channels, subdir=config.subdir
+        ref_or_rec, channels=config.get_all_channels(), subdir=config.get_all_subdir()
     )
     if path is None:
         # happens for cloudpickle>=0.2.1
@@ -772,7 +772,7 @@ def artifact_ref_dependency_tree_to_wheels(artifact_ref, config=None, seen=None)
     top_name = name_from_ref(artifact_ref)
     top_found = False
 
-    solver = Solver("<none>", config.channels, subdirs=config.subdir, specs_to_add=(artifact_ref,))
+    solver = Solver("<none>", config.get_all_channels(), subdirs=config.get_all_subdir(), specs_to_add=(artifact_ref,))
     package_recs = solver.solve_final_state()
 
     if config.skip_python:
