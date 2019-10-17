@@ -6,7 +6,28 @@ conda-press Change Log
 
 
 
+
 <!-- current developments -->
+
+## v0.0.5
+**Added:**
+
+* Added option `--config` which accepts a path to a yaml file with the configuration to run `conda-press`.
+* The `YAML` file passed using the option `--config` also accepts the 
+configuration to be inside of the key `conda_press`.
+
+**Changed:**
+
+* Add dataclass `Config` following the `Introduce Parameter Object` design pattern. 
+    `Config` is responsible to hold the `conda-press` configuration. 
+    Refactored internal classes/functions to use the new approach.
+
+**Authors:**
+
+* Anthony Scopatz
+* Marcelo Duarte Trevisani
+
+
 
 ## v0.0.4
 **Added:**
