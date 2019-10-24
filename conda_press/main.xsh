@@ -1,4 +1,5 @@
 """CLI entry point for conda-press"""
+import os
 from argparse import ArgumentParser
 
 from conda_press.config import Config, get_config_by_yaml
@@ -44,7 +45,6 @@ def main(args=None):
         "--config",
         dest="config_file",
         default=None,
-        nargs=1,
         help="Receives an yaml configuration file which will set the options for conda-press.\n"
              "This option has high priority over the others to configure conda-press.",
     )
@@ -53,9 +53,9 @@ def main(args=None):
     config = Config(
         output=ns.output,
         subdir=ns.subdir,
-        channels=ns.channels,
-        exclude_deps=set(ns.exclude_deps),
-        add_deps=set(ns.add_deps),
+        channels=list(ns.channels),
+        exclude_deps=set(ns.exclude_deps) if ns.exclude_deps else set(),
+        add_deps=set(ns.add_deps) if ns.add_deps else set(),
         merge=ns.merge,
         fatten=ns.fatten,
         strip_symbols=ns.strip_symbols,
@@ -72,15 +72,23 @@ def main(args=None):
         merge(wheels, output=output)
         return
 
-    for fname in ns.files:
+    run_convert_wheel(config)
+
+
+def run_convert_wheel(config):
+    for fname in config.files:
         if "=" in fname:
             print(f'Converting {fname} tree to wheels')
             seen = artifact_ref_dependency_tree_to_wheels(fname, config=config)
-            if ns.fatten:
-                fatten_from_seen(seen, output=config.output, skipped_deps=config.exclude_deps)
-        else:
+            if config.fatten:
+                fatten_from_seen(
+                    seen, output=config.output, skipped_deps=config.exclude_deps
+                )
+        elif os.path.isfile(fname):
             print(f'Converting {fname} to wheel')
             artifact_to_wheel(fname, config=config)
+        else:
+            raise ValueError(f"File receive is not valid.\nFiles: {fname}\n")
 
 
 if __name__ == "__main__":
