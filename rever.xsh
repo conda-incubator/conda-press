@@ -10,7 +10,9 @@ $ACTIVITIES = ['authors', 'version_bump', 'changelog',
 $AUTHORS_FILENAME = 'AUTHORS.md'
 $VERSION_BUMP_PATTERNS = [
     ('conda_press/__init__.py', r'__version__\s*=.*', '__version__ = "$VERSION"'),
-    ('setup.py', r'version\s*=.*', "version='$VERSION',")
+    ('setup.py', r'version\s*=.*', "version='$VERSION',"),
+    ('docs/conf.py', r'release\s*=.*', "release = '$VERSION'"),
+    ('docs/Makefile', r'RELEASE\s*=.*', "RELEASE = v$VERSION"),
     ]
 $CHANGELOG_FILENAME = 'CHANGELOG.md'
 $CHANGELOG_TEMPLATE = 'TEMPLATE.md'
