@@ -72,11 +72,11 @@ def main(args=None):
         merge(wheels, output=output)
         return
 
-    run_convert_wheel(config)
+    run_convert_wheel(ns.files, config)
 
 
-def run_convert_wheel(config):
-    for fname in config.files:
+def run_convert_wheel(files, config):
+    for fname in files:
         if "=" in fname:
             print(f'Converting {fname} tree to wheels')
             seen = artifact_ref_dependency_tree_to_wheels(fname, config=config)
