@@ -21,7 +21,7 @@ $ conda press numpy-1.14.6-py36he5ce36f_1201.tar.bz2
 $ conda press --subdir linux-64 xz=5.2.4=h14c3975_1001
 
 # merge many wheels into a single wheel
-$ conda press --merge *.whl -output scikit_image-0.15.0-2_py37hb3f55d8-cp37-cp37m-linux_x86_64.whl
+$ conda press --merge *.whl --output scikit_image-0.15.0-2_py37hb3f55d8-cp37-cp37m-linux_x86_64.whl
 ```
 
 ## What we are solving
