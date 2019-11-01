@@ -22,13 +22,18 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.imgmath',
               'sphinx.ext.inheritance_diagram', 'sphinx.ext.viewcode',
               #'sphinx.ext.autosummary',
               'numpydoc',
+              'recommonmark',
               ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst,.md'
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.txt': 'markdown',
+    '.md': 'markdown',
+}
 
 # The encoding of source files.
 #source_encoding = 'utf-8'
@@ -105,6 +110,19 @@ modindex_common_prefix = ['conda_press.']
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
+
+# Pallette Colors:
+# 110C1A
+# 5F5250
+# A6A58D
+# C8B7B8
+# BB9A95
+# 7B675E
+# 19182A
+# D0CACA
+# B7A695
+# A9A48B
+
 if not on_rtd:
     import cloud_sptheme as csp
 
@@ -113,10 +131,16 @@ if not on_rtd:
     html_theme_options = {
         'max_width': '1250px',
         'minimal_width': '700px',
-        'relbarbgcolor': '#000000',
-        'footerbgcolor': '#FFFFE7',
+        'relbarbgcolor': '#110C1A',
+        'footerbgcolor': '#A6A58D',
         'sidebarwidth': '322px',
-        'sidebarbgcolor': '#e7e7ff',
+        'sidebarbgcolor': '#D0CACA',
+        'linkcolor': '#7B675E',
+        'link_hover_bg_color': '#D0CACA',
+        'headtrimcolor': '#110C1A',
+        'textcolor': '#110C1A',
+        'sectionbgcolor': '#A9A48B',
+        'codebgcolor': '#efefef',
         #'googleanalytics_id': 'UA-41934829-1',
         'stickysidebar': False,
         'highlighttoc': False,
@@ -138,12 +162,12 @@ if not on_rtd:
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = '_static/longship-256.png'
+html_logo = '_static/press.png'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-html_favicon = '_static/longship.ico'
+html_favicon = '_static/press.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
