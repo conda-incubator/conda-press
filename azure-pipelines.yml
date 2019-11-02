@@ -32,6 +32,10 @@ jobs:
         python.version: '3.7'
     maxParallel: 4
   steps:
+  - script: |
+      sudo chmod -R 777 /Users/runner/.conda
+    displayName: Fix for OSX directory permission
+
   - template: azure-steps.yml
     parameters:
      platform_deps_space: ""
