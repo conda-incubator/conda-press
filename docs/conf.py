@@ -141,6 +141,7 @@ if not on_rtd:
         'textcolor': '#110C1A',
         'sectionbgcolor': '#A9A48B',
         'codebgcolor': '#efefef',
+        'sidebarlinkcolor': '#7B675E',
         #'googleanalytics_id': 'UA-41934829-1',
         'stickysidebar': False,
         'highlighttoc': False,
