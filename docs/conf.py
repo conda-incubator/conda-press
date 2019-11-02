@@ -87,11 +87,11 @@ add_function_parentheses = True
 #show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+#pygments_style = 'sphinx'
 #pygments_style = 'friendly'
 #pygments_style = 'bw'
 #pygments_style = 'fruity'
-#pygments_style = 'manni'
+pygments_style = 'manni'
 #pygments_style = 'tango'
 #pygments_style = 'pastie'
 
