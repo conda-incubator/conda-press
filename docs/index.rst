@@ -1,61 +1,78 @@
 Conda-Press
 ============================
-Rever is a xonsh-powered, cross-platform software release tool.  The
-goal of rever is to provide sofware projects a standard mechanism for dealing with
-code releases. Rever aims to make the process of releasing a new version of a code base
-as easy as running a single command. Rever...
+Press conda packages into wheels.
 
-* has a number of stock tools and utilities that you can mix and match to meet your projects needs,
-* is easily extensible, allowing your project to execute custom release activities, and
-* allows you to undo release activities, in the event of a mistake!
+The wheels created by conda-press are usable in a general Python
+setting, i.e. outside of a conda managed environment.
+
+Quick start
+-----------
+
+Run the ``conda press`` command and point it at either an artifact
+file or spec. For example:
+
+.. code-block:: sh
+
+    # from artifact spec, produces single wheel, including all non-Python requirements
+    $ conda press --subdir linux-64 --skip-python --fatten scikit-image=0.15.0=py37hb3f55d8_2
+
+    # from artifact file, produces a single wheel
+    $ conda press numpy-1.14.6-py36he5ce36f_1201.tar.bz2
+
+    # from artifact spec, produces wheels for package and all requirements
+    $ conda press --subdir linux-64 xz=5.2.4=h14c3975_1001
+
+    # merge many wheels into a single wheel
+    $ conda press --merge *.whl -output scikit_image-0.15.0-2_py37hb3f55d8-cp37-cp37m-linux_x86_64.whl
+
+What we are solving
+-------------------
+conda-press allows us to build out a pip-usable package index which is
+ABI compatible with conda packages. This can help address the following
+issues / workflows:
+
+**Issue 1:**
+
+It can be very difficult to build wheels for packages that have C extensions.
+Also, the provenance of wheels with C extentions can be hard to know (who built it,
+how it was built, etc.). Conda-press enables community building of wheels,
+based on conda-forge provided packages. This should make it very easy to build a
+valid wheel.
+
+**Issue 2:**
+
+Many packages with compiled extensions do not have wheels available on one or more
+popular platforms (Windows, Mac, Linux). This is because building wheels can
+be very difficult.  Conda has a lot of packages that are not available as wheels otherwise.
+Conda-press allows these packages to easily become generally usable wheels.
+
+**Issue 3:** Some people want a package index built on newer ABIs than `manylinux<N>`
 
 
-==================
-Initializing Rever
-==================
-There are a couple steps you should take to get the most out of rever.
+How to install
+--------------
 
-1. Install rever. Rever is on conda-forge so install via
-   ``conda install -c conda-forge conda-press``, via pypi with ``pip install conda-press``,
-   or from source.
+From conda:
 
-2. Setup a ``r.xsh`` file in the root directory of your source repository.
-   Here is a simplified example from ``rever`` itself,
+.. code-block:: sh
 
-    .. code-block:: xonsh
+    conda install -c conda-forge conda-press
 
-          $PROJECT = 'rever'
-          $ACTIVITIES = [
-                        'version_bump',  # Changes the version number in various source files (setup.py, __init__.py, etc)
-                        'changelog',  # Uses files in the news folder to create a changelog for release
-                        'tag',  # Creates a tag for the new version number
-                        'push_tag',  # Pushes the tag up to the $TAG_REMOTE
-                        'pypi',  # Sends the package to pypi
-                        'conda_forge',  # Creates a PR into your package's feedstock
-                        'ghrelease'  # Creates a Github release entry for the new tag
-                         ]
-          $VERSION_BUMP_PATTERNS = [  # These note where/how to find the version numbers
-                                   ('rever/__init__.py', '__version__\s*=.*', "__version__ = '$VERSION'"),
-                                   ('setup.py', 'version\s*=.*,', "version='$VERSION',")
-                                   ]
-          $CHANGELOG_FILENAME = 'CHANGELOG.rst'  # Filename for the changelog
-          $CHANGELOG_TEMPLATE = 'TEMPLATE.rst'  # Filename for the news template
-          $PUSH_TAG_REMOTE = 'git@github.com:regro/rever.git'  # Repo to push tags to
+From the source code:
 
-          $GITHUB_ORG = 'regro'  # Github org for Github releases and conda-forge
-          $GITHUB_REPO = 'rever'  # Github repo for Github releases  and conda-forge
+.. code-block:: sh
 
-3. After setting up the ``rever.xsh`` file run ``rever setup`` in the root
-   directory of your source repository. This will setup files and other things
-   needed for rever to operate.
-4. It is always a good idea to check that you have permissions and the proper
-   libraries installed, so it is best to run ``rever check`` before every release.
-5. When you are ready to release run ``rever <new_version_number>`` and rever
-   will take care of the rest.
+    $ pip install --no-deps .
 
-=========
+More technical details about what we are doing
+----------------------------------------------
+What conda-press does is take an artifact or spec, and turn it into wheel(s).
+When using pip to install such a wheel, it shoves the root level of the artifact
+into site-packages. It then provides wrapper / proxy scripts that point to
+site-packages/bin so that you may run executables and scripts.
+
 Contents
-=========
+--------
 **Installation:**
 
 .. toctree::
@@ -64,26 +81,14 @@ Contents
 
     dependencies
 
-**Guides:**
+
+**Conferences:**
 
 .. toctree::
     :titlesonly:
     :maxdepth: 1
 
-    tutorial
-    usepatterns
-    news
-    authorship
-
-**Configuration & Setup:**
-
-.. toctree::
-    :titlesonly:
-    :maxdepth: 1
-
-    activities
-    envvars
-
+    confs/pydata-nyc2019.md
 
 **Development Spiral:**
 
@@ -99,9 +104,8 @@ Contents
 .. include:: dependencies.rst
 
 
-============
 Contributing
-============
+-------------
 We highly encourage contributions to conda-press! If you would like to contribute,
 it is as easy as forking the repository on GitHub, making your changes, and
 issuing a pull request. If you have any questions about this process don't

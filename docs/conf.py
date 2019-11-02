@@ -6,6 +6,8 @@ import importlib
 
 
 def setup(sphinx):
+    from xonsh.main import setup
+    setup()
     from xonsh.pyghooks import XonshConsoleLexer
     sphinx.add_lexer("xonshcon", XonshConsoleLexer())
 
@@ -142,6 +144,7 @@ if not on_rtd:
         'sectionbgcolor': '#A9A48B',
         'codebgcolor': '#efefef',
         'sidebarlinkcolor': '#7B675E',
+        'object_default_color': '#D0CACA',
         #'googleanalytics_id': 'UA-41934829-1',
         'stickysidebar': False,
         'highlighttoc': False,
