@@ -1,11 +1,12 @@
 """CLI entry point for conda-press"""
+import os
 from argparse import ArgumentParser
 
+from conda_press.config import Config, get_config_by_yaml
 from conda_press.wheel import Wheel, merge, fatten_from_seen
 from conda_press.condatools import (
     artifact_to_wheel,
     artifact_ref_dependency_tree_to_wheels,
-    DEFAULT_CHANNELS
 )
 
 
@@ -32,8 +33,38 @@ def main(args=None):
                    help="Exclude dependencies from conda package.")
     p.add_argument("--add-deps", dest="add_deps", default=None, nargs="+",
                    help="Add dependencies to the wheel.")
+    p.add_argument(
+        "--only-pypi",
+        dest="only_pypi",
+        default=False,
+        action="store_true",
+        help="Remove dependencies which are not on PyPi when converting conda "
+            "package to Python wheel.",
+    )
+    p.add_argument(
+        "--config",
+        dest="config_file",
+        default=None,
+        help="Receives an yaml configuration file which will set the options for conda-press.\n"
+             "This option has high priority over the others to configure conda-press.",
+    )
     ns = p.parse_args(args=args)
-    channels = tuple(ns.channels) + DEFAULT_CHANNELS
+
+    config = Config(
+        output=ns.output,
+        subdir=ns.subdir,
+        channels=list(ns.channels),
+        exclude_deps=set(ns.exclude_deps) if ns.exclude_deps else set(),
+        add_deps=set(ns.add_deps) if ns.add_deps else set(),
+        merge=ns.merge,
+        fatten=ns.fatten,
+        strip_symbols=ns.strip_symbols,
+        skip_python=ns.skip_python,
+        only_pypi=ns.only_pypi,
+    )
+
+    if ns.config_file:
+        get_config_by_yaml(ns.config_file, config)
 
     if ns.merge:
         wheels = {f: Wheel.from_file(f) for f in ns.files}
@@ -41,25 +72,23 @@ def main(args=None):
         merge(wheels, output=output)
         return
 
-    for fname in ns.files:
+    run_convert_wheel(ns.files, config)
+
+
+def run_convert_wheel(files, config):
+    for fname in files:
         if "=" in fname:
             print(f'Converting {fname} tree to wheels')
-            seen = artifact_ref_dependency_tree_to_wheels(
-                fname,
-                subdir=ns.subdir,
-                skip_python=ns.skip_python,
-                strip_symbols=ns.strip_symbols,
-                channels=channels,
-                exclude_deps=ns.exclude_deps,
-                add_deps=ns.add_deps
-            )
-            if ns.fatten:
-                fatten_from_seen(seen, output=ns.output)
-        else:
+            seen = artifact_ref_dependency_tree_to_wheels(fname, config=config)
+            if config.fatten:
+                fatten_from_seen(
+                    seen, output=config.output, skipped_deps=config.exclude_deps
+                )
+        elif os.path.isfile(fname):
             print(f'Converting {fname} to wheel')
-            artifact_to_wheel(fname, strip_symbols=ns.strip_symbols,
-                              exclude_deps=ns.exclude_deps,
-                              add_deps=ns.add_deps)
+            artifact_to_wheel(fname, config=config)
+        else:
+            raise ValueError(f"File receive is not valid.\nFiles: {fname}\n")
 
 
 if __name__ == "__main__":

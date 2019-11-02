@@ -4,7 +4,6 @@ import re
 import sys
 import json
 import shutil
-import platform
 import tarfile
 import tempfile
 
@@ -14,25 +13,12 @@ from xonsh.tools import print_color
 from xonsh.lib.os import rmtree, indir
 
 from ruamel.yaml import YAML
-
 import requests
 
 from conda.api import SubdirData, Solver
 
+from conda_press.config import CACHE_DIR, DEFAULT_CHANNELS, Config
 from conda_press.wheel import Wheel
-
-
-CACHE_DIR = os.path.join(tempfile.gettempdir(), 'artifact-cache')
-DEFAULT_CHANNELS = ('conda-forge', 'anaconda', 'main', 'r')
-SYSTEM = platform.system()
-if SYSTEM == "Linux":
-    SO_EXT = ".so"
-elif SYSTEM == "Darwin":
-    SO_EXT = ".dylib"
-elif SYSTEM == "Windows":
-    SO_EXT = ".dll"
-else:
-    SO_EXT = None
 
 
 def wheel_safe_build(build, build_string=None):
@@ -337,7 +323,7 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
             if depfile is None:
                 print(f"skipping {dep_ref}")
                 continue
-            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False, strip_symbols=strip_symbols)
+            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False, config=Config(strip_symbols=strip_symbols))
             deps_cache[dep_ref] = dep
         tgtdep = os.path.join(dep.artifactdir, relative_source)
         print(f"Searching {dep.artifactdir} for link target of {relative_source} -> {tgtdep}")
@@ -398,7 +384,7 @@ def find_link_target(source, info=None, channels=None, deps_cache=None,
 class ArtifactInfo:
     """Representation of artifact info/ directory."""
 
-    def __init__(self, artifactdir, exclude_deps=None, add_deps=None):
+    def __init__(self, artifactdir, config=None):
         self._artifactdir = None
         self._python_tag = None
         self._abi_tag = None
@@ -413,27 +399,18 @@ class ArtifactInfo:
         self.meta_yaml = None
         self.files = None
         self.artifactdir = artifactdir
-        self.exclude_deps = exclude_deps
-        self.add_deps = add_deps
+        self._config = config if config else Config()
 
     def clean(self):
         rmtree(self._artifactdir, force=True)
 
     @property
-    def exclude_deps(self):
-        return self._exclude_deps
+    def config(self) -> Config:
+        return self._config
 
-    @exclude_deps.setter
-    def exclude_deps(self, list_deps):
-        self._exclude_deps = list_deps if list_deps else []
-
-    @property
-    def add_deps(self):
-        return self._add_deps
-
-    @add_deps.setter
-    def add_deps(self, list_deps):
-        self._add_deps = list_deps if list_deps else []
+    @config.setter
+    def config(self, config_obj: Config):
+        self._config = config_obj
 
     @property
     def artifactdir(self):
@@ -515,9 +492,12 @@ class ArtifactInfo:
         else:
             reqs = self.meta_yaml.get('requirements', {}).get('run', ())
 
-        reqs = set(reqs).union(set(self.add_deps)).difference(set(self.exclude_deps))
-        rr = dict([x.partition(' ')[::2] for x in reqs])
-        self._run_requirements = rr
+        reqs = self.config.clean_deps(reqs)
+
+        if self.config.only_pypi:
+            reqs = get_only_deps_on_pypi(reqs)
+
+        self._run_requirements = dict([x.partition(' ')[::2] for x in reqs])
         return self._run_requirements
 
     @property
@@ -624,14 +604,18 @@ class ArtifactInfo:
         return self.index_json["subdir"]
 
     @classmethod
-    def from_tarball(cls, path, replace_symlinks=True, strip_symbols=True,
-                     skip_python=False, exclude_deps=None, add_deps=None):
+    def from_tarball(cls, path, config=None, replace_symlinks=True):
+        if config is None:
+            config = Config()
         base = os.path.basename(path)
         if base.endswith('.tar.bz2'):
             mode = 'r:bz2'
             canonical_name = base[:-8]
+        elif base.endswith(".tar.gz"):
+            mode = "r:gz"
+            canonical_name = base[:-7]
         elif base.endswith('.tar'):
-            mode - 'r:'
+            mode = 'r:'
             canonical_name = base[:-4]
         else:
             mode = 'r'
@@ -639,13 +623,13 @@ class ArtifactInfo:
         tmpdir = tempfile.mkdtemp(prefix=canonical_name)
         with tarfile.TarFile.open(path, mode=mode) as tf:
             tf.extractall(path=tmpdir)
-        info = cls(tmpdir, exclude_deps=exclude_deps, add_deps=add_deps)
-        if skip_python and "python" in info.run_requirements:
+        info = cls(tmpdir, config)
+        if config.skip_python and "python" in info.run_requirements:
             return info
-        if strip_symbols:
+        if config.strip_symbols:
             info.strip_symbols()
         if replace_symlinks:
-            info.replace_symlinks(strip_symbols=strip_symbols)
+            info.replace_symlinks(strip_symbols=config.strip_symbols)
         return info
 
     def strip_symbols(self):
@@ -660,9 +644,11 @@ class ArtifactInfo:
             with ${...}.swap(RAISE_SUBPROC_ERROR=True):
                 ![strip --strip-all --preserve-dates --enable-deterministic-archives @(absname)]
 
-    def replace_symlinks(self, strip_symbols=True):
+    def replace_symlinks(self, strip_symbols=None):
         # this is needed because of https://github.com/pypa/pip/issues/5919
         # this has to walk the package deps in some cases.
+        if strip_symbols is None:
+            strip_symbols = self.config.strip_symbols
         for f in self.files:
             absname = os.path.join(self.artifactdir, f)
             if not os.path.islink(absname):
@@ -687,23 +673,46 @@ class ArtifactInfo:
                 dep.clean()
 
 
-def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
-                      skip_python=False, exclude_deps=None, add_deps=None):
+def get_only_deps_on_pypi(list_deps):
+    """Based on a set of dependencies this function will check if those
+    dependencies are on PyPi, if it is not available it will be removed.
+
+    Attributes
+    ----------
+    list_deps: set of `str`
+        List of dependencies as a string values
+
+    Returns
+    -------
+    set
+        List of packages present on PyPi
+    """
+    new_deps = set()
+    for pkg in list_deps:
+        pkg_name_url = pkg.lower().replace("-", "_")
+        response = requests.get(f"https://pypi.python.org/pypi/{pkg_name_url}/json")
+        if response.status_code == 200:
+            new_deps.add(pkg)
+        else:
+            print(f"Package {pkg} was not found on PyPi.")
+    return new_deps
+
+
+def artifact_to_wheel(path, config=None):
     """Converts an artifact to a wheel. The clean option will remove
     the temporary artifact directory before returning.
     """
     # unzip the artifact
     if path is None:
         return
+    if config is None:
+        config = Config()
     if isinstance(path, ArtifactInfo):
-        path.exclude_deps = exclude_deps
-        path.add_deps = add_deps
+        path.config = config
         info = path
     else:
         info = ArtifactInfo.from_tarball(
-            path, strip_symbols=strip_symbols,
-            exclude_deps=exclude_deps,
-            add_deps=add_deps
+            path, config=config
         )
     # get names from meta.yaml
     for checker, getter in PACKAGE_SPEC_GETTERS:
@@ -724,62 +733,49 @@ def artifact_to_wheel(path, include_requirements=True, strip_symbols=True,
         _remap_noarch_python(wheel, info)
     elif "python" in info.run_requirements:
         _remap_site_packages(wheel, info)
-        if skip_python:
+        if config.skip_python:
           info.run_requirements.pop('python')
     wheel.rewrite_python_shebang()
     wheel.rewrite_rpaths()
     wheel.rewrite_scripts_linking()
     wheel.entry_points = info.entry_points
-    wheel.write(include_requirements=include_requirements, skip_python=skip_python)
+    wheel.write(
+        include_requirements=config.include_requirements,
+        skip_python=config.skip_python
+    )
     return wheel
 
 
-def package_to_wheel(
-        ref_or_rec, channels=None, subdir=None, include_requirements=True,
-        strip_symbols=True,skip_python=False, _top=True, exclude_deps=None,
-        add_deps=None
-):
+def package_to_wheel(ref_or_rec, config=None, _top=True):
     """Converts a package ref spec or a PackageRecord into a wheel."""
-    path = download_artifact(ref_or_rec, channels=channels, subdir=subdir)
+    if config is None:
+        config = Config()
+    path = download_artifact(
+        ref_or_rec, channels=config.get_all_channels(), subdir=config.get_all_subdir()
+    )
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
-    info = ArtifactInfo.from_tarball(
-        path, strip_symbols=strip_symbols,
-        skip_python=skip_python,
-        exclude_deps=exclude_deps,
-        add_deps=add_deps
-    )
-    if skip_python and not _top and "python" in info.run_requirements:
+    info = ArtifactInfo.from_tarball(path, config=config)
+    if config.skip_python and not _top and "python" in info.run_requirements:
         return None
-    wheel = artifact_to_wheel(
-        info,
-        include_requirements=include_requirements,
-        strip_symbols=strip_symbols,
-        skip_python=skip_python,
-        exclude_deps=exclude_deps,
-        add_deps=add_deps
-    )
+    wheel = artifact_to_wheel(info, config=config)
     wheel._top = _top
     return wheel
 
 
-def artifact_ref_dependency_tree_to_wheels(
-        artifact_ref, channels=None, subdir=None, seen=None,
-        include_requirements=True, skip_python=False, strip_symbols=True,
-        exclude_deps=None, add_deps=None
-):
+def artifact_ref_dependency_tree_to_wheels(artifact_ref, config=None, seen=None):
     """Converts all artifact dependencies to wheels for a ref spec string"""
+    if config is None:
+        config = Config()
     seen = {} if seen is None else seen
     top_name = name_from_ref(artifact_ref)
     top_found = False
 
-    channels = DEFAULT_CHANNELS if channels is None else channels
-    subdirs = (subdir, "noarch") if subdir else ("noarch",)
-    solver = Solver("<none>", channels, subdirs=subdirs, specs_to_add=(artifact_ref,))
+    solver = Solver("<none>", config.get_all_channels(), subdirs=config.get_all_subdir(), specs_to_add=(artifact_ref,))
     package_recs = solver.solve_final_state()
 
-    if skip_python:
+    if config.skip_python:
         names_recs = {pr.name: pr for pr in package_recs}
         top_package_rec = names_recs[top_name]
         python_deps = set()
@@ -809,7 +805,7 @@ def artifact_ref_dependency_tree_to_wheels(
             print_color("Have already seen {YELLOW}" + match_spec_str + "{NO_COLOR}")
             continue
 
-        if skip_python and not is_top and package_rec.name in python_deps:
+        if config.skip_python and not is_top and package_rec.name in python_deps:
             print_color("Skipping Python package dependency {YELLOW}" + match_spec_str + "{NO_COLOR}")
             seen[match_spec_str] = None
             continue
@@ -817,14 +813,8 @@ def artifact_ref_dependency_tree_to_wheels(
         print_color("Building {YELLOW}" + match_spec_str + "{NO_COLOR} as dependency of {GREEN}" + artifact_ref + "{NO_COLOR}")
         wheel = package_to_wheel(
             package_rec,
-            channels=channels,
-            subdir=subdir,
-            skip_python=skip_python,
-            include_requirements=include_requirements,
-            strip_symbols=strip_symbols,
             _top=is_top,
-            exclude_deps=exclude_deps,
-            add_deps=add_deps
+            config=config
         )
         seen[match_spec_str] = wheel
 

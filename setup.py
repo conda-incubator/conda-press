@@ -19,7 +19,7 @@ def main():
         long_description=readme,
         long_description_content_type='text/markdown',
         license='BSD',
-        version='0.0.3',
+        version='0.0.5',
         author='Anthony Scopatz',
         maintainer='Anthony Scopatz',
         author_email='scopatz@gmail.com',
@@ -30,8 +30,8 @@ def main():
         package_dir={'conda_press': 'conda_press'},
         package_data={'conda_press': ['*.xsh']},
         scripts=scripts,
-        install_requires=['xonsh', 'lazyasd', 'ruamel.yaml', 'tqdm', 'requests'],
-        python_requires=">=3.5",
+        install_requires=['xonsh', 'lazyasd', 'ruamel.yaml', 'tqdm', 'requests', 'dataclasses'],
+        python_requires=">=3.6",
         zip_safe=False,
         )
     setup(**skw)

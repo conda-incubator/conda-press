@@ -13,6 +13,7 @@ from xonsh.lib.os import rmtree
 
 from conda.api import SubdirData
 
+from conda_press.config import Config
 from conda_press.wheel import fatten_from_seen
 from conda_press.condatools import artifact_to_wheel, CACHE_DIR, artifact_ref_dependency_tree_to_wheels
 
@@ -79,7 +80,7 @@ def pip_install_artifact(request):
     def create_wheel_and_install(artifact_ref, include_requirements=True):
         nonlocal wheel
         artifact_path = download_artifact(artifact_ref)
-        wheel = artifact_to_wheel(artifact_path, include_requirements=include_requirements)
+        wheel = artifact_to_wheel(artifact_path, Config(include_requirements=include_requirements))
         subprocess.run(['virtualenv', test_env], check=True)
         if sys.platform.startswith('win'):
             site_packages = os.path.join(test_env, 'Lib', 'site-packages')
@@ -109,15 +110,20 @@ def pip_install_artifact_tree(request):
     wheels = {}
     test_env = tempfile.mkdtemp(prefix="test-env")
     def create_wheels_and_install(artifact_ref, include_requirements=True,
-                                  skip_python=False, fatten=False):
+                                  skip_python=False, fatten=False, skipped_deps=None):
         nonlocal wheels
-        subdir = PLATFORM_TO_SUBDIR[sys.platform]
-        seen = artifact_ref_dependency_tree_to_wheels(artifact_ref, seen=wheels, subdir=subdir,
-            include_requirements=include_requirements,
-            skip_python=skip_python,
+        seen = artifact_ref_dependency_tree_to_wheels(
+            artifact_ref,
+            seen=wheels,
+            config=Config(
+                skip_python=skip_python,
+                include_requirements=include_requirements,
+                fatten=fatten,
+                subdir=PLATFORM_TO_SUBDIR[sys.platform],
+            ),
         )
         if fatten:
-            wheels = fatten_from_seen(seen)
+            wheels = fatten_from_seen(seen, skipped_deps=skipped_deps)
         subprocess.run(['virtualenv', test_env], check=True)
         wheel_filenames = " ".join(reversed([w.filename for w in wheels.values()
                                              if w is not None]))

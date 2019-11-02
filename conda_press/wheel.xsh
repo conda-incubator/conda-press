@@ -245,6 +245,9 @@ class Wheel:
         component_wheels : dict or None
             Mapping of component wheels when merging many wheels into one.
             This is only non-None valued during the actual merge operation.
+        skipped_deps : set
+            A set of dependency names we know that are excluded from the
+            requirements.
         scripts : sequence of (filesystem-str, archive-str) tuples or None
             This maps filesystem paths to the scripts/filename.ext in the archive.
             If an entry is a filesystem path, it will be converted to the correct
@@ -271,6 +274,7 @@ class Wheel:
         self.entry_points = []
         self.moved_shared_libs = []
         self.component_wheels = None
+        self.skipped_deps = frozenset()
         self._records = [(f"{distribution}-{version}.dist-info/RECORD", "", "")]
         self._scripts = []
         self._includes = []
@@ -400,11 +404,13 @@ class Wheel:
                           if line.startswith('Requires-Dist:')]
         merged_dists = {w.distribution for w in self.component_wheels.values()
                         if w is not None}
+        merged_dists |= self.skipped_deps
+        merged_dists |= {d.replace("-", "_") for d in self.skipped_deps}
         for i, dist in reversed(requires_lines):
             if dist in merged_dists:
                 print("Removing dependence on " + dist)
                 del lines[i]
-        content = "\n".join(lines)
+        content = "".join(lines)
         self._writestr_and_record(arcname, content)
 
     def write_metadata_from_artifact(self, include_requirements=True, skip_python=False,
@@ -738,16 +744,19 @@ def _merge_file_filter(files, distinfo):
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/METADATA",
         f"{distinfo['distribution']}-{distinfo['version']}.dist-info/top_level.txt",
     }
+    bad_arcbases = {"WHEEL", "METADATA", "RECORD"}
     for f in files:
         fsname, arcname = f
         arcdir, arcbase = os.path.split(arcname)
         if arcname in bad_arcnames:
             continue
+        elif arcdir.endswith(".dist-info") and arcbase in bad_arcbases:
+            continue
         filtered.append(f)
     return filtered
 
 
-def merge(files, output=None):
+def merge(files, output=None, skipped_deps=None):
     """merges wheels together"""
     if output is None:
         distinfo = {"distribution": "package", "version": "1.0"}
@@ -756,6 +765,7 @@ def merge(files, output=None):
     whl = Wheel(**distinfo)
     whl.derived_from = "wheel"
     whl.component_wheels = files
+    whl.skipped_deps = skipped_deps or set()
     for ref, w in files.items():
         if w is None:
             continue
@@ -771,13 +781,14 @@ def merge(files, output=None):
     return whl
 
 
-def fatten_from_seen(seen, output=None):
+def fatten_from_seen(seen, output=None, skipped_deps=None):
     """Merges wheels from a dict of seen wheels.
     Returns a dict mapping the name of the created file to the Wheel.
     """
     wheels = {}
+    skipped_deps = skipped_deps or set()
     os.makedirs('tmp-wheels', exist_ok=True)
-    for w in seen.values():
+    for k, w in seen.items():
         if w is None:
             continue
         fname = w.filename
@@ -788,7 +799,7 @@ def fatten_from_seen(seen, output=None):
         shutil.move(fname, reloc)
         wheels[reloc] = Wheel.from_file(reloc)
         wheels[reloc]._top = istop
-    whl = merge(wheels, output=output)
+    whl = merge(wheels, output=output, skipped_deps=skipped_deps)
     rmtree('tmp-wheels')
     print("Created fat wheel: " + output)
     return {output: whl}
