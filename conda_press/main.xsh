@@ -69,6 +69,8 @@ def main(args=None):
     if ns.merge:
         wheels = {f: Wheel.from_file(f) for f in ns.files}
         output = ns.files[-1] if ns.output is None else ns.output
+        if output in wheels:
+            wheels[output]._top = True
         merge(wheels, output=output)
         return
 
