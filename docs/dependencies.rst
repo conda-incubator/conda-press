@@ -10,3 +10,5 @@ Conda-press currently has the following external dependencies,
 #. tqdm
 #. requests
 #. conda (installed in the current environment)
+
+All of these dependencies are available in conda-forge.

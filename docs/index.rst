@@ -46,7 +46,15 @@ popular platforms (Windows, Mac, Linux). This is because building wheels can
 be very difficult.  Conda has a lot of packages that are not available as wheels otherwise.
 Conda-press allows these packages to easily become generally usable wheels.
 
-**Issue 3:** Some people want a package index built on newer ABIs than `manylinux<N>`
+**Issue 3:**
+
+Some people want a package index built on newer ABIs than `manylinux<N>`.
+
+**Issue 4:**
+
+Conda-Press addresses the issue of making shared library dependencies loadable at runtime
+by having a unix-like directory structure inside of the `site-packages/` directory. This
+allows wheels to have a common `$RPATH` that they can all point to.
 
 
 How to install
