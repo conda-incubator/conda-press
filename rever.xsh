@@ -3,8 +3,8 @@ $GITHUB_ORG = 'regro'
 $PYPI_SIGN = False
 
 $ACTIVITIES = ['authors', 'version_bump', 'changelog',
-               'tag', 'push_tag',
-               'ghrelease', 'pypi',
+               'sphinx', 'tag', 'push_tag',
+               'ghrelease', 'ghpages', 'pypi',
                'conda_forge',
               ]
 
@@ -23,3 +23,13 @@ $CHANGELOG_HEADER = """
 
 ## v$VERSION
 """
+
+$GHPAGES_REPO = 'git@github.com:regro/conda-press-docs.git'
+
+$DOCKER_CONDA_DEPS = [
+    'sphinx', 'recommonmark', 'ruamel.yaml', 'numpydoc', 'xonsh', 'conda', 'tqdm',
+    'lazyasd', 'virtualenv', 'requests'
+]
+$DOCKER_INSTALL_COMMAND = 'git clean -fdx && pip install --no-deps .'
+$DOCKER_GIT_NAME = 'conda-press'
+$DOCKER_GIT_EMAIL = 'conda-press@example.com'
