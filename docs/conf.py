@@ -52,7 +52,7 @@ copyright = u'2019, Anthony Scopatz'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = "0.0.3"
+release = '0.0.6'
 
 # The short X.Y version.
 version = release.rsplit('.',1)[0]
