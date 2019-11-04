@@ -30,6 +30,8 @@ jobs:
         python.version: '3.6'
       python37:
         python.version: '3.7'
+      python38:
+        python.version: '3.8'
     maxParallel: 4
   steps:
   - script: |
@@ -50,6 +52,8 @@ jobs:
         python.version: '3.6'
       python37:
         python.version: '3.7'
+      python38:
+        python.version: '3.8'
     maxParallel: 4
   steps:
   - template: azure-steps.yml
