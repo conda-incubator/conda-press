@@ -13,6 +13,7 @@ from conda_press.config import Config, SYSTEM, SO_EXT
 ON_LINUX = (SYSTEM == "Linux")
 ON_WINDOWS = (SYSTEM == "Windows")
 ON_MAC = (SYSTEM == "Darwin")
+PY_VER_STR =  "".join(map(str, sys.version_info[:2]))
 
 skip_if_not_on_linux = pytest.mark.skipif(not ON_LINUX, reason="can only be run on Linux")
 skip_if_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="can not be run on Windows")
@@ -147,7 +148,8 @@ def test_click(pip_install_artifact_tree, xonsh):
 
 @skip_if_on_windows
 def test_uvloop(pip_install_artifact_tree, xonsh):
-    wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2", skip_python=True, fatten=True)
+    wheel, test_env, sp = pip_install_artifact_tree("uvloop=0.12.2=py" + PY_VER_STR + "*",
+                                                    skip_python=True, fatten=True)
 
 
 def test_exclude_add_deps(xonsh, data_folder, tmpdir):
