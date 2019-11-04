@@ -82,6 +82,9 @@ def get_config_by_yaml(yaml_path, config=None):
     with open(yaml_path, "r") as config_file:
         yaml = YAML(typ="safe").load(config_file)
 
+    if yaml is None:
+        yaml = dict()
+
     if "conda_press" in yaml:
         yaml = yaml["conda_press"]
 
