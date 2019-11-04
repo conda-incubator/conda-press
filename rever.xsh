@@ -28,7 +28,7 @@ $GHPAGES_REPO = 'git@github.com:regro/conda-press-docs.git'
 
 $DOCKER_CONDA_DEPS = [
     'sphinx', 'recommonmark', 'ruamel.yaml', 'numpydoc', 'xonsh', 'conda', 'tqdm',
-    'lazyasd', 'virtualenv', 'requests'
+    'lazyasd', 'virtualenv', 'requests', 'cloud_sptheme',
 ]
 $DOCKER_INSTALL_COMMAND = 'git clean -fdx && pip install --no-deps .'
 $DOCKER_GIT_NAME = 'conda-press'
