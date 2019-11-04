@@ -7,7 +7,23 @@ conda-press Change Log
 
 
 
+
 <!-- current developments -->
+
+## v0.0.6
+**Fixed:**
+
+* When `conda-press` was executed with some empty values for `--add-deps` and `--exclude-deps` it raises and error 
+of None type is not iterable.
+* Fixed issue with running `--merge` on a list of wheels.
+
+**Authors:**
+
+* Anthony Scopatz
+* Marcelo Duarte Trevisani
+* Brian Kelley
+
+
 
 ## v0.0.5
 **Added:**
