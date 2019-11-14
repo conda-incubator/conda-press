@@ -563,13 +563,18 @@ class ArtifactInfo:
         if self.noarch:
             atag = "none"
         elif self.python_tag == 'py2.py3':
-            # no arch or no Python dependnce
+            # no arch or no Python dependence
             atag = 'none'
         elif self.python_tag == "cp3":
             atag = "abi3"
         elif self.python_tag.startswith('cp'):
             # explanation of ABI suffix at https://www.python.org/dev/peps/pep-3149/
-            atag = self.python_tag + 'm'
+            major, minor = int(self.python_tag[2]), int(self.python_tag[3:])
+            if (major, minor) >= (3, 8):
+                # CPython >= 3.8 does not use pymalloc
+                atag = self.python_tag
+            else:
+                atag = self.python_tag + 'm'
         else:
             # could not determine, use no-arch setting
             atag = "none"
