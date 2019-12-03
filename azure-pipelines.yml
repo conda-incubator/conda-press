@@ -1,5 +1,5 @@
 variables:
-  deps.space: 'conda requests xonsh lazyasd tqdm ruamel.yaml pytest pytest-timeout virtualenv pip pytest-azurepipelines dataclasses pytest-console-scripts '
+  deps.space: 'conda requests xonsh lazyasd tqdm ruamel.yaml pytest pytest-timeout virtualenv pip pytest-azurepipelines dataclasses pytest-console-scripts'
   deps.comma: 'conda,requests,xonsh,lazyasd,tqdm,ruamel.yaml,pytest,pytest-timeout,virtualenv,pip,pytest-azurepipelines,dataclasses,pytest-console-scripts'
 
 jobs:
