@@ -21,6 +21,7 @@ jobs:
      platform_deps_space: ""
      platform_deps_comma: ""
      pip_flags: ""
+
 - job: mac
   pool:
     vmImage: 'macOS-10.13'
@@ -37,12 +38,12 @@ jobs:
   - script: |
       sudo chmod -R 777 /Users/runner/.conda 
     displayName: Fix for OSX directory permission
-
   - template: azure-steps.yml
     parameters:
      platform_deps_space: ""
      platform_deps_comma: ""
      pip_flags: "--user"
+
 - job: linux
   pool:
     vmImage: 'ubuntu-16.04'
