@@ -21,6 +21,7 @@ jobs:
      platform_deps_space: ""
      platform_deps_comma: ""
      pip_flags: ""
+
 - job: mac
   pool:
     vmImage: 'macOS-10.13'
@@ -30,17 +31,19 @@ jobs:
         python.version: '3.6'
       python37:
         python.version: '3.7'
+      python38:
+        python.version: '3.8'
     maxParallel: 4
   steps:
   - script: |
-      sudo chmod -R 777 /Users/runner/.conda
+      sudo chmod -R 777 /Users/runner/.conda 
     displayName: Fix for OSX directory permission
-
   - template: azure-steps.yml
     parameters:
      platform_deps_space: ""
      platform_deps_comma: ""
      pip_flags: "--user"
+
 - job: linux
   pool:
     vmImage: 'ubuntu-16.04'
@@ -50,6 +53,8 @@ jobs:
         python.version: '3.6'
       python37:
         python.version: '3.7'
+      python38:
+        python.version: '3.8'
     maxParallel: 4
   steps:
   - template: azure-steps.yml
