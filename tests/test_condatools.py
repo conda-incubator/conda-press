@@ -174,9 +174,9 @@ def test_exclude_add_deps(xonsh, data_folder, tmpdir):
 
 
 
-@pytest.mark.parametrize("extension", [".tar", ".tar.gz", ".tar.bz2", ".zip"])
-def test_from_tarballs(xonsh, tmpdir, data_folder, extension):
-    ArtifactInfo.from_tarball(os.path.join(data_folder, f"test-deps-0.0.1-py_0{extension}"))
+@pytest.mark.parametrize("extension", [".tar", ".tar.gz", ".tar.bz2", ".zip", ".conda"])
+def test_from_tarballs_or_conda(xonsh, tmpdir, data_folder, extension):
+    ArtifactInfo.from_tar_or_conda(os.path.join(data_folder, f"test-deps-0.0.1-py_0{extension}"))
 
 
 def test_get_only_deps_on_pypi_by_artifact(tmpdir, xonsh, data_folder):
