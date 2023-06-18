@@ -1,10 +1,13 @@
 """Some tools for converting conda packages to wheels"""
 import os
 import re
+import io
 import sys
 import json
 import shutil
 import tarfile
+import zipfile
+import zstandard
 import tempfile
 
 from lazyasd import lazyobject
@@ -323,7 +326,7 @@ def _find_file_in_artifact(relative_source, info=None, channels=None, deps_cache
             if depfile is None:
                 print(f"skipping {dep_ref}")
                 continue
-            dep = ArtifactInfo.from_tarball(depfile, replace_symlinks=False, config=Config(strip_symbols=strip_symbols))
+            dep = ArtifactInfo.from_tar_or_conda(depfile, replace_symlinks=False, config=Config(strip_symbols=strip_symbols))
             deps_cache[dep_ref] = dep
         tgtdep = os.path.join(dep.artifactdir, relative_source)
         print(f"Searching {dep.artifactdir} for link target of {relative_source} -> {tgtdep}")
@@ -604,6 +607,57 @@ class ArtifactInfo:
         return self.index_json["subdir"]
 
     @classmethod
+    def from_tar_or_conda(cls, path, config=None, replace_symlinks=True):
+        base = os.path.basename(path)
+        if base.endswith(".conda"):
+            return cls.from_condabundle(path, config, replace_symlinks)
+        else:
+            return cls.from_tarball(path, config, replace_symlinks)
+
+    @classmethod
+    def from_condabundle(cls, path, config=None, replace_symlinks=True):
+        # Get config
+        if config is None:
+            config = Config()
+
+        # Grab the file name
+        base = os.path.basename(path)
+        if not base.endswith('.conda'):
+            raise ValueError("file-type is not .conda")
+
+        # Create a tmpdir and unzip the .conda file
+        canonical_name = base[:-4]
+        tmpdir = tempfile.mkdtemp(prefix=canonical_name)
+        with zipfile.ZipFile(path) as zf:
+            zf.extractall(path=tmpdir)
+        # This creates two new files, "info-<pkg>.tar.zst" and "pkg-<pkg>.tar.zst"
+        # Decompress the two new files in the tempdir
+        #   NOTE: if the .conda file compression format changes in the future, this section may need to be updated:
+        #   https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/packages.html#conda-file-format
+        dctx = zstandard.ZstdDecompressor()
+        for file in os.listdir(tmpdir):
+            if not file.endswith(".zst"):
+                continue
+            print(f"Decompressing {file}")
+            with open(os.path.join(tmpdir, file), 'rb') as ifh:
+                intermediate_stream = io.BytesIO()
+                dctx.copy_stream(ifh, intermediate_stream)
+            intermediate_stream.seek(0)
+            with tarfile.TarFile.open(name="tarfile", mode='r', fileobj=intermediate_stream) as tf:
+                tf.extractall(tmpdir)
+        # At this point, the tmpdir directory structure looks just like an unzipped .tar.bz2 package.
+
+        # Create the ArtifactInfo object from the tmpdir based on config.
+        info = cls(tmpdir, config)
+        if config.skip_python and "python" in info.run_requirements:
+            return info
+        if config.strip_symbols:
+            info.strip_symbols()
+        if replace_symlinks:
+            info.replace_symlinks(strip_symbols=config.strip_symbols)
+        return info
+
+    @classmethod
     def from_tarball(cls, path, config=None, replace_symlinks=True):
         if config is None:
             config = Config()
@@ -711,7 +765,7 @@ def artifact_to_wheel(path, config=None):
         path.config = config
         info = path
     else:
-        info = ArtifactInfo.from_tarball(
+        info = ArtifactInfo.from_tar_or_conda(
             path, config=config
         )
     # get names from meta.yaml
@@ -756,7 +810,7 @@ def package_to_wheel(ref_or_rec, config=None, _top=True):
     if path is None:
         # happens for cloudpickle>=0.2.1
         return None
-    info = ArtifactInfo.from_tarball(path, config=config)
+    info = ArtifactInfo.from_tar_or_conda(path, config=config)
     if config.skip_python and not _top and "python" in info.run_requirements:
         return None
     wheel = artifact_to_wheel(info, config=config)
